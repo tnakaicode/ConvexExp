@@ -14,6 +14,8 @@ from OCCUtils.Topology import Topo
 from OCCUtils.Construct import make_box, make_face
 from OCCUtils.Construct import vec_to_dir
 
+colos = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
+
 if __name__ == "__main__":
     display, start_display, add_menu, add_function_to_menu = init_display()
 
@@ -31,8 +33,6 @@ if __name__ == "__main__":
 
     bo.Perform()
     print("error status: {}".format(bo.ErrorStatus()))
-
-    colos = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
 
     top = Topo(bo.Shape())
     for i, sol in enumerate(top.solids()):
