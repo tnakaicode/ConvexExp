@@ -6,6 +6,9 @@ from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.TopoDS import TopoDS_Compound
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.BRep import BRep_Builder
+from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID
+from OCC.Core.TopExp import TopExp_Explorer
 from OCCUtils.Topology import Topo
 from OCCUtils.Construct import make_box, make_face
 from OCCUtils.Construct import vec_to_dir
@@ -33,14 +36,29 @@ if __name__ == "__main__":
     bo.AddArgument(fc2)
     bo.AddArgument(fc3)
 
-    bo.Perform()
+    splitter = GEOMAlgo_Splitter()
+    splitter.AddArgument(box)
+    splitter.AddTool(fc1)
+    splitter.AddTool(fc2)
+    splitter.AddTool(fc3)
+    splitter.Perform()
+    #display.DisplayShape(splitter.Shape())
+    
+    exp = TopExp_Explorer(splitter.Shape(), TopAbs_SOLID)
+    shp = []
+    while exp.More():
+        shp.append(exp.Current())
+        exp.Next()
+    display.DisplayShape(shp[0])
+
+    """bo.Perform()
     print("error status: {}".format(bo.ErrorStatus()))
 
     colos = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE", "BLUE", "RED"]
 
     top = Topo(bo.Shape())
     for i, sol in enumerate(top.solids()):
-        display.DisplayShape(sol, color=colos[i], transparency=0.5)
+        display.DisplayShape(sol, color=colos[i], transparency=0.5)"""
 
     display.FitAll()
     start_display()
