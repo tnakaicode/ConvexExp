@@ -18,12 +18,16 @@ from OCCUtils.Construct import make_box, make_face
 from OCCUtils.Construct import vec_to_dir
 
 if __name__ == "__main__":
+    num = 0
     box = make_box(100, 100, 100)
+
+    stpname = "{}/shp_{:04d}.stp".format("./shp/", num)
+    write_step_file(box, stpname)
 
     splitter = GEOMAlgo_Splitter()
     splitter.AddArgument(box)
 
-    for i in range(5):
+    for i in range(7):
         pnt = gp_Pnt(*np.random.rand(3) * 100)
         vec = gp_Vec(*np.random.randn(3))
         pln = gp_Pln(pnt, vec_to_dir(vec))
@@ -31,21 +35,19 @@ if __name__ == "__main__":
         splitter.AddTool(fce)
 
     splitter.Perform()
-    stpname = "{}/shp.stp".format("./shp/")
-    write_step_file(splitter.Shape(), stpname)
-
     #shp_list = splitter.Generated()
-
+    
     exp = TopExp_Explorer(splitter.Shape(), TopAbs_SOLID)
     shp = []
-    num = 0
     while exp.More():
         num += 1
-        stpname = "{}/shp_{:04d}.stp".format("./shp/", num)
-        write_step_file(exp.Current(), stpname)
-        shp.append(exp.Current())
 
         props = GProp_GProps()
         brepgprop_LinearProperties(exp.Current(), props)
-        print(props.Mass())
+        vol = props.Mass()
+        print(vol)
+
+        stpname = "./shp/shp_{:04d}_{:05.0f}.stp".format(num, vol)
+        write_step_file(exp.Current(), stpname)
+        shp.append(exp.Current())
         exp.Next()
