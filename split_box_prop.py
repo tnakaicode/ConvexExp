@@ -31,20 +31,13 @@ if __name__ == "__main__":
         splitter.AddTool(fce)
 
     splitter.Perform()
-    stpname = "{}/shp.stp".format("./shp/")
-    write_step_file(splitter.Shape(), stpname)
-
-    #shp_list = splitter.Generated()
 
     exp = TopExp_Explorer(splitter.Shape(), TopAbs_SOLID)
     shp = []
     num = 0
     while exp.More():
         num += 1
-        stpname = "{}/shp_{:04d}.stp".format("./shp/", num)
-        write_step_file(exp.Current(), stpname)
         shp.append(exp.Current())
-
         props = GProp_GProps()
         brepgprop_LinearProperties(exp.Current(), props)
         print(props.Mass())
