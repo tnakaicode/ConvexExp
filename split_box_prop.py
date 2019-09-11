@@ -4,13 +4,15 @@ from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pln
 from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape
-from OCC.Core.BRep import BRep_Builder
+from OCC.Core.BRep import BRep_Builder, BRep_Tool
+from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepGProp import brepgprop_LinearProperties, brepgprop_VolumeProperties
 from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
-from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TCollection import TCollection_ExtendedString_IsEqual
 from OCC.Core.GProp import GProp_GProps
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face
@@ -35,16 +37,26 @@ if __name__ == "__main__":
         splitter.AddTool(fce)
 
     splitter.Perform()
-    
+
     exp = TopExp_Explorer(splitter.Shape(), TopAbs_SOLID)
     shp = []
     vol = 0
     while exp.More():
         props = GProp_GProps()
         num += 1
-        
+
         cov = exp.Current()
         shp.append(cov)
+
+        shp_exp = TopExp_Explorer(cov, TopAbs_FACE)
+        fce = shp_exp.Current()
+        cheker = BRepCheck_Analyzer(fce)
+        shp_exp.Next()
+        while shp_exp.More():
+            fc1 = shp_exp.Current()
+            print(shp_exp.Depth())
+            print(shp_exp.Depth(), cheker.IsValid(fc1))
+            shp_exp.Next()
 
         brepgprop_VolumeProperties(cov, props)
         vol += props.Mass()
