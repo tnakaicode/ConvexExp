@@ -4,19 +4,23 @@ from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax3
 from OCC.Core.gp import gp_Pln
-from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
-from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepGProp import brepgprop_LinearProperties, brepgprop_VolumeProperties
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.BRepCheck import BRepCheck_Analyzer
+from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
-from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TCollection import TCollection_ExtendedString_IsEqual
 from OCC.Core.GProp import GProp_GProps
+from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.GeomAPI import GeomAPI_ProjectPointOnSurf, GeomAPI_ProjectPointOnCurve
+from OCC.Core.GeomAPI import GeomAPI_PointsToBSplineSurface, GeomAPI_IntCS
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face
+from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCCUtils.Construct import vec_to_dir
 
 
@@ -48,6 +52,9 @@ class CovExp (object):
         self.exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while self.exp.More():
             print(self.cal_vol(self.exp.Current()), self.base_vol)
+            top = TopologyExplorer(self.exp.Current())
+            print(top.number_of_faces())
+            print(top.number_of_edges())
 
             shp_exp = TopExp_Explorer(self.exp.Current(), TopAbs_FACE)
             fce = shp_exp.Current()
