@@ -4,14 +4,17 @@ from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax3
 from OCC.Core.gp import gp_Pln
+from OCC.Core.Precision import precision_Angular, precision_Confusion
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
-from OCC.Core.BRepGProp import brepgprop_LinearProperties, brepgprop_VolumeProperties
+from OCC.Core.BRepGProp import brepgprop_LinearProperties, brepgprop_VolumeProperties, brepgprop_SurfaceProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape
+from OCC.Core.TopoDS import topods_Edge
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
+from OCC.Core.LocOpe import LocOpe_FindEdges, LocOpe_FindEdgesInFace
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.TCollection import TCollection_ExtendedString_IsEqual
 from OCC.Core.GProp import GProp_GProps
@@ -48,29 +51,42 @@ class CovExp (object):
         brepgprop_VolumeProperties(shp, self.prop)
         return self.prop.Mass()
 
+    def cal_are(self, shp=TopoDS_Shape()):
+        brepgprop_SurfaceProperties(shp, self.prop)
+        return self.prop.Mass()
+
+    def prop_solid(self, sol=TopoDS_Solid()):
+        top = TopologyExplorer(sol)
+        print(sol)
+        print(self.cal_vol(sol))
+        print(top.number_of_faces(), top.number_of_edges())
+
+        exp = TopExp_Explorer(sol, TopAbs_FACE)
+        self.current_face = exp.Current()
+        face_top = TopologyExplorer(self.current_face)
+        print(face_top.number_of_edges())
+        exp.Next()
+
+        while exp.More():
+            fc1 = exp.Current()
+            edge_find = LocOpe_FindEdges(self.current_face, fc1)
+            edge_find.InitIterator()
+            while edge_find.More():
+                print(edge_find.EdgeFrom(), edge_find.EdgeTo())
+                edge_find.Next()
+            exp.Next()
+
     def prop_solids(self):
         self.exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while self.exp.More():
-            print(self.cal_vol(self.exp.Current()), self.base_vol)
-            top = TopologyExplorer(self.exp.Current())
-            print(top.number_of_faces())
-            print(top.number_of_edges())
-
-            shp_exp = TopExp_Explorer(self.exp.Current(), TopAbs_FACE)
-            fce = shp_exp.Current()
-            cheker = BRepCheck_Analyzer(fce)
-            """shp_exp.Next()
-            while shp_exp.More():
-                fc1 = shp_exp.Current()
-                print(shp_exp.Depth())
-                print(shp_exp.Depth(), cheker.IsValid(fc1))
-                shp_exp.Next()"""
+            self.prop_solid(self.exp.Current())
             self.exp.Next()
 
 
 if __name__ == "__main__":
     obj = CovExp()
-    obj.split_run()
+    obj.split_run(3)
     obj.prop_solids()
 
     print(obj.cal_vol())
+    obj.prop_solid(obj.base)
