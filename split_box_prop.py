@@ -5,10 +5,11 @@ from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax3
 from OCC.Core.gp import gp_Pln
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
-from OCC.Core.BRepGProp import brepgprop_LinearProperties, brepgprop_VolumeProperties
+from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_VolumeProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
+from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
@@ -16,8 +17,6 @@ from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.TCollection import TCollection_ExtendedString_IsEqual
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
-from OCC.Core.GeomAPI import GeomAPI_ProjectPointOnSurf, GeomAPI_ProjectPointOnCurve
-from OCC.Core.GeomAPI import GeomAPI_PointsToBSplineSurface, GeomAPI_IntCS
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face
 from OCC.Extend.TopologyUtils import TopologyExplorer
@@ -48,23 +47,34 @@ class CovExp (object):
         brepgprop_VolumeProperties(shp, self.prop)
         return self.prop.Mass()
 
+    def cal_are(self, shp=TopoDS_Shape()):
+        brepgprop_SurfaceProperties(shp, self.prop)
+        return self.prop.Mass()
+
+    def prop_soild(self, sol=TopoDS_Solid()):
+        sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
+        sol_top = TopologyExplorer(sol)
+        print(self.cal_vol(sol), self.base_vol)
+        print(sol_top.number_of_faces())
+
+        fc0 = sol_exp.Current()
+        sol_exp.Next()
+
+        while sol_exp.More():
+            fc1 = sol_exp.Current()
+            print(self.cal_are(fc0), self.cal_are(fc1))
+
+            find_edge = LocOpe_FindEdges(fc0, fc1)
+            find_edge.InitIterator()
+            while find_edge.More():
+                print(find_edge.EdgeFrom())
+                find_edge.Next()
+            sol_exp.Next()
+
     def prop_solids(self):
         self.exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while self.exp.More():
-            print(self.cal_vol(self.exp.Current()), self.base_vol)
-            top = TopologyExplorer(self.exp.Current())
-            print(top.number_of_faces())
-            print(top.number_of_edges())
-
-            shp_exp = TopExp_Explorer(self.exp.Current(), TopAbs_FACE)
-            fce = shp_exp.Current()
-            cheker = BRepCheck_Analyzer(fce)
-            """shp_exp.Next()
-            while shp_exp.More():
-                fc1 = shp_exp.Current()
-                print(shp_exp.Depth())
-                print(shp_exp.Depth(), cheker.IsValid(fc1))
-                shp_exp.Next()"""
+            self.prop_soild(self.exp.Current())
             self.exp.Next()
 
 
