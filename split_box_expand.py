@@ -127,11 +127,14 @@ class CovExp (object):
         while find_edge.More():
             edge = find_edge.EdgeFrom()
             line = self.prop_edge(edge)
+            
             plan = self.pln_on_face(face)
-            print(face, self.cal_are(face), plan)
-            print(plan, plan.Axis())
             pln_angle = self.tmp_axis.Angle(plan.Axis())
+            lin_angle = self.tmp_axis.Angle(line.Position())
+            #print(face, self.cal_are(face), plan)
+            print(plan, plan.Axis())
             print(np.rad2deg(pln_angle))
+            print(np.rad2deg(lin_angle))
             #print(self.cal_len(edge), self.cal_are(face))
 
             self.face_rotate(face, line.Position(), -pln_angle)
@@ -149,7 +152,7 @@ class CovExp (object):
         trf = gp_Trsf()
         trf.SetTransformation(axs_3, self.tmp_axs3)
         loc_face = TopLoc_Location(trf)
-        face.Move(loc_face)
+        face.Location(loc_face)
         return face
 
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1(), angle=0):
@@ -160,7 +163,7 @@ class CovExp (object):
         trf = gp_Trsf()
         trf.SetTransformation(axs3, axs3.Rotated(axs, angle))
         loc_face = TopLoc_Location(trf)
-        face.Move(loc_face)
+        face.Location(loc_face)
         return face
 
     def face_init(self, face=TopoDS_Face()):
@@ -194,10 +197,19 @@ class CovExp (object):
 if __name__ == "__main__":
     obj = CovExp(show=True)
     obj.split_run(1)
-    obj.prop_solids()
+    #obj.prop_solids()
+
+    sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
+    obj.prop_soild(sol_exp.Current())
+
+    obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
+    
+    obj.display.FitAll()
+    obj.start_display()
+    
 
     #print(obj.cal_vol())
     #obj.prop_soild(obj.base)
 
     # obj.fileout()
-    obj.ShowDisplay()
+    #obj.ShowDisplay()
