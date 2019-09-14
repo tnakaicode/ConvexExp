@@ -2,8 +2,9 @@ import numpy as np
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
-from OCC.Core.gp import gp_Ax3
+from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_Pln, gp_Lin
+from OCC.Core.gp import gp_Trsf
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
@@ -30,7 +31,7 @@ from OCCUtils.Construct import vec_to_dir
 
 class CovExp (object):
 
-    def __init__(self, file=False):
+    def __init__(self, file=False, show=False):
         self.prop = GProp_GProps()
         self.base = make_box(1000, 1000, 1000)
         self.base_vol = self.cal_vol(self.base)
@@ -39,8 +40,12 @@ class CovExp (object):
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
 
-    def display(self):
-        self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
+        self.show = show
+
+        if self.show == True:
+            self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
+
+    def ShowDisplay(self):
         colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
 
         num = 0
@@ -120,16 +125,37 @@ class CovExp (object):
 
         while find_edge.More():
             edge = find_edge.EdgeFrom()
-            plan = self.pln_on_face(face)
             self.prop_edge(edge)
+            plan = self.pln_on_face(face)
             print(face, self.cal_are(face), plan)
             print(plan, plan.Axis())
+            pln_angle = self.tmp_axis.Angle(plan.Axis())
+            print(np.rad2deg(pln_angle))
             #print(self.cal_len(edge), self.cal_are(face))
+
+            self.face_tranfer(face, plan.Axis())
+            if self.show == True:
+                self.display.DisplayShape(face, transparency=0.5)
+
+            plan = self.pln_on_face(face)
+            print(face, self.cal_are(face), plan)
+            print(plan, plan.Axis())
             find_edge.Next()
+
+    def face_tranfer(self, face=TopoDS_Face(), axs=gp_Ax1()):
+        axs_3 = gp_Ax3(axs.Location(), axs.Direction())
+        trf = gp_Trsf()
+        trf.SetTransformation(axs_3, self.tmp_axs3)
+        loc_face = TopLoc_Location(trf)
+        face.Move(loc_face)
+        return face
 
     def face_init(self, face=TopoDS_Face()):
         self.tmp_face = face
         self.tmp_plan = self.pln_on_face(self.tmp_face)
+        self.tmp_axis = self.tmp_plan.Axis()
+        self.tmp_axs3 = gp_Ax3(self.tmp_axis.Location(),
+                               self.tmp_axis.Direction())
         print(self.tmp_plan.Axis())
 
     def prop_soild(self, sol=TopoDS_Solid()):
@@ -153,12 +179,12 @@ class CovExp (object):
 
 
 if __name__ == "__main__":
-    obj = CovExp()
-    obj.split_run()
+    obj = CovExp(show=True)
+    obj.split_run(1)
     obj.prop_solids()
 
-    print(obj.cal_vol())
-    obj.prop_soild(obj.base)
+    # print(obj.cal_vol())
+    # obj.prop_soild(obj.base)
 
     # obj.fileout()
-    # obj.display()
+    obj.ShowDisplay()
