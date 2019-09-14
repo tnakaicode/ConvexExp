@@ -124,16 +124,7 @@ class CovExp (object):
             self.DumpTop(shp, level + 1)
 
     def ShowDisplay(self):
-        colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
-
-        num = 0
-        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
-        while sol_exp.More():
-            num += 1
-            self.display.DisplayShape(
-                sol_exp.Current(), color=colors[num % len(colors)], transparency=0.5)
-            sol_exp.Next()
-
+        self.display.DisplayShape(self.base, color="BLUE", transparency=0.5)
         self.display.FitAll()
         self.start_display()
 
@@ -261,7 +252,7 @@ class CovExp (object):
         #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         loc_face = TopLoc_Location(trf)
         new_face = face.Located(loc_face)
-        self.sol_builder.Add(new_face)
+        #self.sol_builder.Add(new_face)
         self.face_lst.Append(new_face)
         # face.Location(loc_face)
         if self.show == True:
@@ -280,7 +271,7 @@ class CovExp (object):
         self.face_cnt = []
         self.face_num = 0
         self.face_init(sol_exp.Current())
-        self.sol_builder.Add(sol, sol_exp.Current())
+        #self.sol_builder.Add(sol, sol_exp.Current())
         sol_exp.Next()
 
         while sol_exp.More():
@@ -317,20 +308,9 @@ class CovExp (object):
 
 
 if __name__ == "__main__":
-    obj = CovExp(show=True, file=True)
-    obj.split_run(3)
-    obj.prop_solids()
+    obj = CovExp(stpfile="./shp/shp_0019.stp", show=True)
+    
+    print(obj.cal_vol())
+    obj.prop_soild(obj.base)
 
-    """sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
-    obj.prop_soild(sol_exp.Current())
-
-    obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-
-    obj.display.FitAll()
-    obj.start_display()"""
-
-    # print(obj.cal_vol())
-    # obj.prop_soild(obj.base)
-
-    # obj.fileout()
     obj.ShowDisplay()
