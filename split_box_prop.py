@@ -14,7 +14,6 @@ from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape, TopoDS_Face
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
-from OCC.Core.TCollection import TCollection_ExtendedString_IsEqual
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
@@ -55,32 +54,34 @@ class CovExp (object):
             self.splitter.AddTool(fce)
         self.splitter.Perform()
 
-    def cal_vol(self, shp=TopoDS_Shape()):
-        brepgprop_VolumeProperties(shp, self.prop)
+    def cal_len(self, shp=TopoDS_Shape()):
+        brepgprop_LinearProperties(shp, self.prop)
         return self.prop.Mass()
 
     def cal_are(self, shp=TopoDS_Shape()):
         brepgprop_SurfaceProperties(shp, self.prop)
         return self.prop.Mass()
 
-    def cal_len(self, shp=TopoDS_Shape()):
-        brepgprop_LinearProperties(shp, self.prop)
+    def cal_vol(self, shp=TopoDS_Shape()):
+        brepgprop_VolumeProperties(shp, self.prop)
         return self.prop.Mass()
 
     def face_expand(self, face=TopoDS_Face()):
-        print(self.cal_are(face))
+        print(face)
 
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
-        while find_edge.More():
+
+        if find_edge.More():
             edge = find_edge.EdgeFrom()
-            print(self.cal_len(edge), self.cal_are(face))
+            print(face, self.cal_are(face))
+            #print(self.cal_len(edge), self.cal_are(face))
             find_edge.Next()
 
     def prop_soild(self, sol=TopoDS_Solid()):
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
-        print(self.cal_vol(sol), self.base_vol)
+        #print(self.cal_vol(sol), self.base_vol)
         print(sol_top.number_of_faces())
 
         self.tmp_face = sol_exp.Current()
@@ -104,4 +105,4 @@ if __name__ == "__main__":
 
     print(obj.cal_vol())
     obj.prop_soild(obj.base)
-    obj.fileout()
+    # obj.fileout()
