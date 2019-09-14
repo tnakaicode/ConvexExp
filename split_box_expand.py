@@ -28,6 +28,13 @@ from OCC.Extend.ShapeFactory import make_box, make_face
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCCUtils.Construct import vec_to_dir
 
+from PyQt5.QtWidgets import QApplication, qApp
+from PyQt5.QtWidgets import QDialog, QCheckBox
+
+
+def axs1_to_axs3(axs=gp_Ax1()):
+    return gp_Ax3(axs.Location(), axs.Direction())
+
 
 class CovExp (object):
 
@@ -44,6 +51,52 @@ class CovExp (object):
 
         if self.show == True:
             self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
+            from OCC.Display.qtDisplay import qtViewer3d
+            self.app = self.get_app()
+            self.wi = self.app.topLevelWidgets()[0]
+            self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
+
+    def get_app(self):
+        app = QApplication.instance()
+        #app = qApp
+        # checks if QApplication already exists
+        if not app:
+            app = QApplication(sys.argv)
+        return app
+
+    def on_select(self):
+        self.vi.sig_topods_selected.connect(self._on_select)
+
+    def _on_select(self, shapes):
+        """
+        Parameters
+        ----------
+        shape : TopoDS_Shape
+        """
+        for shape in shapes:
+            self.DumpTop(shape)
+
+    def DumpTop(self, shape, level=0):
+        """
+        Print the details of an object from the top down
+        """
+        brt = BRep_Tool()
+        s = shape.ShapeType()
+        if s == TopAbs_VERTEX:
+            pnt = brt.Pnt(topods_Vertex(shape))
+            dmp = " " * level
+            dmp += "%s - " % shapeTypeString(shape)
+            dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
+            print(dmp)
+        else:
+            dmp = " " * level
+            dmp += shapeTypeString(shape)
+            print(dmp)
+        it = TopoDS_Iterator(shape)
+        while it.More():
+            shp = it.Value()
+            it.Next()
+            self.DumpTop(shp, level + 1)
 
     def ShowDisplay(self):
         colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
@@ -95,11 +148,6 @@ class CovExp (object):
     def prop_edge(self, edge=TopoDS_Edge()):
         edge_adaptor = BRepAdaptor_Curve(edge)
         edge_line = edge_adaptor.Line()
-        #print(edge_line, edge_line.Position())
-        i_min = edge_adaptor.FirstParameter()
-        i_max = edge_adaptor.LastParameter()
-        #print(i_min, edge_adaptor.Value(i_min))
-        #print(i_max, edge_adaptor.Value(i_max))
         return edge_line
 
     def pln_on_face(self, face=TopoDS_Face()):
@@ -127,10 +175,10 @@ class CovExp (object):
         while find_edge.More():
             edge = find_edge.EdgeFrom()
             line = self.prop_edge(edge)
-            
+
             plan = self.pln_on_face(face)
-            pln_angle = self.tmp_axis.Angle(plan.Axis())
-            lin_angle = self.tmp_axis.Angle(line.Position())
+            pln_angle = self.tmp_axis.Angle(plan.Position())
+            lin_angle = self.tmp_axis.Angle(axs1_to_axs3(line.Position()))
             #print(face, self.cal_are(face), plan)
             print(plan, plan.Axis())
             print(np.rad2deg(pln_angle))
@@ -157,7 +205,7 @@ class CovExp (object):
 
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1(), angle=0):
         plan = self.pln_on_face(face)
-        axs1 = plan.Axis()
+        axs1 = plan.Position()
         axs3 = gp_Ax3(axs1.Location(), axs1.Direction())
 
         trf = gp_Trsf()
@@ -169,10 +217,8 @@ class CovExp (object):
     def face_init(self, face=TopoDS_Face()):
         self.tmp_face = face
         self.tmp_plan = self.pln_on_face(self.tmp_face)
-        self.tmp_axis = self.tmp_plan.Axis()
-        self.tmp_axs3 = gp_Ax3(self.tmp_axis.Location(),
-                               self.tmp_axis.Direction())
-        print(self.tmp_plan.Axis())
+        self.tmp_axis = self.tmp_plan.Position()
+        print(self.tmp_axis)
 
     def prop_soild(self, sol=TopoDS_Solid()):
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
@@ -197,19 +243,18 @@ class CovExp (object):
 if __name__ == "__main__":
     obj = CovExp(show=True)
     obj.split_run(1)
-    #obj.prop_solids()
+    # obj.prop_solids()
 
     sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
     obj.prop_soild(sol_exp.Current())
 
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-    
+
     obj.display.FitAll()
     obj.start_display()
-    
 
-    #print(obj.cal_vol())
-    #obj.prop_soild(obj.base)
+    # print(obj.cal_vol())
+    # obj.prop_soild(obj.base)
 
     # obj.fileout()
-    #obj.ShowDisplay()
+    # obj.ShowDisplay()
