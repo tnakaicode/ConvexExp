@@ -137,9 +137,9 @@ class CovExp (object):
 
 if __name__ == "__main__":
     obj = CovExp()
-    obj.split_run()
+    obj.split_run(10)
     obj.prop_solids()
 
     print(obj.cal_vol())
     obj.prop_soild(obj.base)
-    # obj.fileout()
+    obj.fileout()

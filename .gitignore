@@ -9,4 +9,3 @@ __pycache__/
 *.pyc[cod]
 
 # CAD file
-shp*/*
