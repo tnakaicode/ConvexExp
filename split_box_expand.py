@@ -95,11 +95,12 @@ class CovExp (object):
     def prop_edge(self, edge=TopoDS_Edge()):
         edge_adaptor = BRepAdaptor_Curve(edge)
         edge_line = edge_adaptor.Line()
-        print(edge_line, edge_line.Position())
+        #print(edge_line, edge_line.Position())
         i_min = edge_adaptor.FirstParameter()
         i_max = edge_adaptor.LastParameter()
         #print(i_min, edge_adaptor.Value(i_min))
         #print(i_max, edge_adaptor.Value(i_max))
+        return edge_line
 
     def pln_on_face(self, face=TopoDS_Face()):
         face_adaptor = BRepAdaptor_Surface(face)
@@ -125,7 +126,7 @@ class CovExp (object):
 
         while find_edge.More():
             edge = find_edge.EdgeFrom()
-            self.prop_edge(edge)
+            line = self.prop_edge(edge)
             plan = self.pln_on_face(face)
             print(face, self.cal_are(face), plan)
             print(plan, plan.Axis())
@@ -133,7 +134,8 @@ class CovExp (object):
             print(np.rad2deg(pln_angle))
             #print(self.cal_len(edge), self.cal_are(face))
 
-            self.face_tranfer(face, plan.Axis())
+            self.face_rotate(face, line.Position(), -pln_angle)
+            #self.face_tranfer(face, plan.Axis())
             if self.show == True:
                 self.display.DisplayShape(face, transparency=0.5)
 
@@ -146,6 +148,17 @@ class CovExp (object):
         axs_3 = gp_Ax3(axs.Location(), axs.Direction())
         trf = gp_Trsf()
         trf.SetTransformation(axs_3, self.tmp_axs3)
+        loc_face = TopLoc_Location(trf)
+        face.Move(loc_face)
+        return face
+
+    def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1(), angle=0):
+        plan = self.pln_on_face(face)
+        axs1 = plan.Axis()
+        axs3 = gp_Ax3(axs1.Location(), axs1.Direction())
+
+        trf = gp_Trsf()
+        trf.SetTransformation(axs3, axs3.Rotated(axs, angle))
         loc_face = TopLoc_Location(trf)
         face.Move(loc_face)
         return face
@@ -183,8 +196,8 @@ if __name__ == "__main__":
     obj.split_run(1)
     obj.prop_solids()
 
-    # print(obj.cal_vol())
-    # obj.prop_soild(obj.base)
+    #print(obj.cal_vol())
+    #obj.prop_soild(obj.base)
 
     # obj.fileout()
     obj.ShowDisplay()
