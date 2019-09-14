@@ -3,7 +3,8 @@ import numpy as np
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax3
-from OCC.Core.gp import gp_Pln
+from OCC.Core.gp import gp_Pln, gp_Lin
+from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCC.Core.BRepLProp import BRepLProp_CLProps
@@ -71,14 +72,17 @@ class CovExp (object):
 
     def prop_edge(self, edge=TopoDS_Edge()):
         edge_adaptor = BRepAdaptor_Curve(edge)
+        edge_line = edge_adaptor.Line()
+        print(edge_line, edge_line.Position())
         i_min = edge_adaptor.FirstParameter()
         i_max = edge_adaptor.LastParameter()
-        print(i_min, edge_adaptor.Value(i_min))
-        print(i_max, edge_adaptor.Value(i_max))
+        #print(i_min, edge_adaptor.Value(i_min))
+        #print(i_max, edge_adaptor.Value(i_max))
 
-    def prop_face(self, face=TopoDS_Face()):
+    def pln_on_face(self, face=TopoDS_Face()):
         face_adaptor = BRepAdaptor_Surface(face)
         face_trf = face_adaptor.Trsf()
+        face_pln = face_adaptor.Plane()
         #face_dir = face_adaptor.Direction()
 
         face_umin = face_adaptor.FirstUParameter()
@@ -89,8 +93,7 @@ class CovExp (object):
         face_v = (face_vmax + face_vmin) / 2
         face_pnt = face_adaptor.Value(face_u, face_v)
 
-        print(face_trf)
-        print(face_pnt)
+        return face_pln
 
     def face_expand(self, face=TopoDS_Face()):
         print(face)
@@ -100,11 +103,17 @@ class CovExp (object):
 
         while find_edge.More():
             edge = find_edge.EdgeFrom()
-            self.prop_face(face)
+            plan = self.pln_on_face(face)
             self.prop_edge(edge)
-            print(face, self.cal_are(face))
+            print(face, self.cal_are(face), plan)
+            print(plan, plan.Axis())
             #print(self.cal_len(edge), self.cal_are(face))
             find_edge.Next()
+
+    def face_init(self, face=TopoDS_Face()):
+        self.tmp_face = face
+        self.tmp_plan = self.pln_on_face(self.tmp_face)
+        print(self.tmp_plan.Axis())
 
     def prop_soild(self, sol=TopoDS_Solid()):
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
@@ -112,7 +121,7 @@ class CovExp (object):
         #print(self.cal_vol(sol), self.base_vol)
         print(sol_top.number_of_faces())
 
-        self.tmp_face = sol_exp.Current()
+        self.face_init(sol_exp.Current())
         sol_exp.Next()
 
         while sol_exp.More():
