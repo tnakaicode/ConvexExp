@@ -17,7 +17,7 @@ from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape
+from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, TopoDS_Builder, TopoDS_CompSolid
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
@@ -29,7 +29,6 @@ from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.TopAbs import TopAbs_VERTEX
 from OCC.TopoDS import TopoDS_Iterator, topods_Vertex
 from OCCUtils.Topology import shapeTypeString, dumpTopology
-
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
 from PyQt5.QtWidgets import QApplication, qApp
@@ -73,6 +72,7 @@ class CovExp (object):
         print(self.cal_vol(self.base))
 
         self.show = show
+        self.file = file
 
         if self.show == True:
             self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
@@ -176,6 +176,18 @@ class CovExp (object):
         edge_line = edge_adaptor.Line()
         return edge_line
 
+    def face_init(self, face=TopoDS_Face()):
+        self.face_num += 1
+        self.tmp_face = face
+        self.tmp_plan = self.pln_on_face(self.tmp_face)
+        self.tmp_axis = self.tmp_plan.Position()
+        print(self.tmp_axis)
+
+        if self.show == True:
+            self.display.DisplayMessage(
+                self.tmp_axis.Location(), "{:04d}".format(self.face_num))
+            pass
+
     def pln_on_face(self, face=TopoDS_Face()):
         face_adaptor = BRepAdaptor_Surface(face)
         face_trf = face_adaptor.Trsf()
@@ -199,24 +211,27 @@ class CovExp (object):
         find_edge.InitIterator()
 
         while find_edge.More():
-            edge = find_edge.EdgeTo()
-            line = self.prop_edge(edge)
-            plan = self.pln_on_face(face)
+            if face not in self.face_cnt:
+                edge = find_edge.EdgeTo()
+                line = self.prop_edge(edge)
+                plan = self.pln_on_face(face)
 
-            plan_axs = plan.Position()
-            line_axs = line.Position()
+                plan_axs = plan.Position()
+                line_axs = line.Position()
 
-            print(self.tmp_axis.Axis())
-            print(plan.Position().Axis())
-            #print(self.cal_len(edge), self.cal_are(face))
+                print(self.tmp_axis.Axis())
+                print(plan.Position().Axis())
+                #print(self.cal_len(edge), self.cal_are(face))
 
-            new_face = self.face_rotate(face, line_axs)
-            #self.face_tranfer(face, plan.Axis())
+                new_face = self.face_rotate(face, line_axs)
+                #self.face_tranfer(face, plan.Axis())
 
-            plan = self.pln_on_face(face)
-            print(face, self.cal_are(face), plan)
-            print(plan, plan.Axis())
+                plan = self.pln_on_face(face)
+                print(face, self.cal_are(face), plan)
+                print(plan, plan.Axis())
+                self.face_cnt.append(face)
             find_edge.Next()
+        #self.face_init(face)
 
     def face_tranfer(self, face=TopoDS_Face(), axs=gp_Ax1()):
         axs_3 = gp_Ax3(axs.Location(), axs.Direction())
@@ -247,37 +262,49 @@ class CovExp (object):
         #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         loc_face = TopLoc_Location(trf)
         new_face = face.Located(loc_face)
+        self.sol_builder.Add(new_face)
+        self.face_lst.Append(new_face)
         # face.Location(loc_face)
         if self.show == True:
             self.display.DisplayShape(new_face)
-            self.display.DisplayMessage(axs.Location(), "P1")
         return new_face
 
-    def face_init(self, face=TopoDS_Face()):
-        self.tmp_face = face
-        self.tmp_plan = self.pln_on_face(self.tmp_face)
-        self.tmp_axis = self.tmp_plan.Position()
-        print(self.tmp_axis)
-
-        if self.show == True:
-            # self.display.DisplayShape(axs_pln(self.tmp_axis))
-            pass
-
     def prop_soild(self, sol=TopoDS_Solid()):
+        self.sol_builder = TopoDS_Builder()
+        self.sol_builder.Add(TopoDS_Shape(), sol)
+
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
         #print(self.cal_vol(sol), self.base_vol)
         print(sol_top.number_of_faces())
 
+        self.face_lst = TopTools_ListOfShape()
+        self.face_cnt = []
+        self.face_num = 0
         self.face_init(sol_exp.Current())
+        self.sol_builder.Add(sol_exp.Current())
         sol_exp.Next()
 
         while sol_exp.More():
             face = sol_exp.Current()
             self.face_expand(face)
-            self.face_init(sol_exp.Current())
             sol_exp.Next()
+        
+        if self.file == True:
+            stp_file = "./shp/shp_{:04d}.stp".format(self.sol_num)
+            write_step_file(sol, stp_file)
 
+            stp_file = "./shp/shp_{:04d}_exp.stp".format(self.sol_num)
+            new_shpe = TopoDS_Compound()
+            self.sol_builder.MakeCompSolid(new_shpe)
+            write_step_file(new_shpe, stp_file)
+            
+
+     
+        
+
+        #if self.show == True:
+        #    self.display.DisplayShape(self.face_cnt)
         """self.face_init(face)
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
         while sol_exp.More():
@@ -288,26 +315,28 @@ class CovExp (object):
 
     def prop_solids(self):
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        self.sol_num = 0
         while sol_exp.More():
+            self.sol_num += 1
             self.prop_soild(sol_exp.Current())
             sol_exp.Next()
 
 
 if __name__ == "__main__":
-    obj = CovExp(show=True)
-    obj.split_run(2)
-    # obj.prop_solids()
+    obj = CovExp(show=True, file=True)
+    obj.split_run(3)
+    obj.prop_solids()
 
-    sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
+    """sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
     obj.prop_soild(sol_exp.Current())
 
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
 
     obj.display.FitAll()
-    obj.start_display()
+    obj.start_display()"""
 
     # print(obj.cal_vol())
     # obj.prop_soild(obj.base)
 
     # obj.fileout()
-    # obj.ShowDisplay()
+    obj.ShowDisplay()
