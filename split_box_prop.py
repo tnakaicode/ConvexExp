@@ -5,6 +5,8 @@ from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax3
 from OCC.Core.gp import gp_Pln
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
+from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
+from OCC.Core.BRepLProp import BRepLProp_CLProps
 from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_VolumeProperties, brepgprop_LinearProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
@@ -12,6 +14,7 @@ from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape, TopoDS_Face
+from OCC.Core.TopoDS import TopoDS_Edge
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
@@ -26,7 +29,7 @@ class CovExp (object):
 
     def __init__(self, file=False):
         self.prop = GProp_GProps()
-        self.base = make_box(100, 200, 300)
+        self.base = make_box(1000, 1000, 1000)
         self.base_vol = self.cal_vol(self.base)
 
         self.splitter = GEOMAlgo_Splitter()
@@ -47,10 +50,10 @@ class CovExp (object):
 
     def split_run(self, num=5):
         for i in range(num):
-            pnt = gp_Pnt(*np.random.rand(3) * 100)
+            pnt = gp_Pnt(*np.random.rand(3) * 1000)
             vec = gp_Vec(*np.random.randn(3))
             pln = gp_Pln(pnt, vec_to_dir(vec))
-            fce = make_face(pln, -1000, 1000, -1000, 1000)
+            fce = make_face(pln, -10000, 10000, -10000, 10000)
             self.splitter.AddTool(fce)
         self.splitter.Perform()
 
@@ -66,14 +69,39 @@ class CovExp (object):
         brepgprop_VolumeProperties(shp, self.prop)
         return self.prop.Mass()
 
+    def prop_edge(self, edge=TopoDS_Edge()):
+        edge_adaptor = BRepAdaptor_Curve(edge)
+        i_min = edge_adaptor.FirstParameter()
+        i_max = edge_adaptor.LastParameter()
+        print(i_min, edge_adaptor.Value(i_min))
+        print(i_max, edge_adaptor.Value(i_max))
+
+    def prop_face(self, face=TopoDS_Face()):
+        face_adaptor = BRepAdaptor_Surface(face)
+        face_trf = face_adaptor.Trsf()
+        #face_dir = face_adaptor.Direction()
+
+        face_umin = face_adaptor.FirstUParameter()
+        face_vmin = face_adaptor.FirstVParameter()
+        face_umax = face_adaptor.LastUParameter()
+        face_vmax = face_adaptor.LastVParameter()
+        face_u = (face_umax + face_umin) / 2
+        face_v = (face_vmax + face_vmin) / 2
+        face_pnt = face_adaptor.Value(face_u, face_v)
+
+        print(face_trf)
+        print(face_pnt)
+
     def face_expand(self, face=TopoDS_Face()):
         print(face)
 
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
 
-        if find_edge.More():
+        while find_edge.More():
             edge = find_edge.EdgeFrom()
+            self.prop_face(face)
+            self.prop_edge(edge)
             print(face, self.cal_are(face))
             #print(self.cal_len(edge), self.cal_are(face))
             find_edge.Next()
