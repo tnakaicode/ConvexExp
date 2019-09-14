@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir

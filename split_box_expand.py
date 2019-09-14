@@ -1,4 +1,5 @@
 import numpy as np
+import sys
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
@@ -17,8 +18,11 @@ from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, TopoDS_Builder, TopoDS_CompSolid
+from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Builder
+from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_CompSolid
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
+from OCC.Core.TopoDS import TopoDS_Iterator, topods_Vertex
+from OCC.Core.TopAbs import TopAbs_VERTEX
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
@@ -26,9 +30,7 @@ from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
-from OCC.TopAbs import TopAbs_VERTEX
-from OCC.TopoDS import TopoDS_Iterator, topods_Vertex
-from OCCUtils.Topology import shapeTypeString, dumpTopology
+from OCC.Extend.TopologyUtils import dump_topology_to_string, get_type_as_string
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
 from PyQt5.QtWidgets import QApplication, qApp
@@ -111,12 +113,12 @@ class CovExp (object):
         if s == TopAbs_VERTEX:
             pnt = brt.Pnt(topods_Vertex(shape))
             dmp = " " * level
-            dmp += "%s - " % shapeTypeString(shape)
+            dmp += "%s - " % get_type_as_string(shape)
             dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
             print(dmp)
         else:
             dmp = " " * level
-            dmp += shapeTypeString(shape)
+            dmp += get_type_as_string(shape)
             print(dmp)
         it = TopoDS_Iterator(shape)
         while it.More():
@@ -231,7 +233,7 @@ class CovExp (object):
                 print(plan, plan.Axis())
                 self.face_cnt.append(face)
             find_edge.Next()
-        #self.face_init(face)
+        # self.face_init(face)
 
     def face_tranfer(self, face=TopoDS_Face(), axs=gp_Ax1()):
         axs_3 = gp_Ax3(axs.Location(), axs.Direction())
@@ -271,7 +273,6 @@ class CovExp (object):
 
     def prop_soild(self, sol=TopoDS_Solid()):
         self.sol_builder = TopoDS_Builder()
-        self.sol_builder.Add(TopoDS_Shape(), sol)
 
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
@@ -282,14 +283,14 @@ class CovExp (object):
         self.face_cnt = []
         self.face_num = 0
         self.face_init(sol_exp.Current())
-        self.sol_builder.Add(sol_exp.Current())
+        self.sol_builder.Add(sol, sol_exp.Current())
         sol_exp.Next()
 
         while sol_exp.More():
             face = sol_exp.Current()
             self.face_expand(face)
             sol_exp.Next()
-        
+
         if self.file == True:
             stp_file = "./shp/shp_{:04d}.stp".format(self.sol_num)
             write_step_file(sol, stp_file)
@@ -298,12 +299,8 @@ class CovExp (object):
             new_shpe = TopoDS_Compound()
             self.sol_builder.MakeCompSolid(new_shpe)
             write_step_file(new_shpe, stp_file)
-            
 
-     
-        
-
-        #if self.show == True:
+        # if self.show == True:
         #    self.display.DisplayShape(self.face_cnt)
         """self.face_init(face)
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
