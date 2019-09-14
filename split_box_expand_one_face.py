@@ -26,6 +26,10 @@ from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
+from OCC.TopAbs import TopAbs_VERTEX
+from OCC.TopoDS import TopoDS_Iterator, topods_Vertex
+from OCCUtils.Topology import shapeTypeString, dumpTopology
+
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
 from PyQt5.QtWidgets import QApplication, qApp
@@ -47,6 +51,16 @@ def axs_pln(axs):
     return lx, ly, lz
 
 
+def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
+    org_angle = ax0.Angle(ax1)
+    ref_angle = ax0.Direction().AngleWithRef(ax1.Direction(), ax0.XDirection())
+
+    if np.sign(org_angle) == np.sign(ref_angle):
+        return org_angle
+    else:
+        return np.pi - ref_angle
+
+
 class CovExp (object):
 
     def __init__(self, file=False, show=False):
@@ -66,6 +80,7 @@ class CovExp (object):
             self.app = self.get_app()
             self.wi = self.app.topLevelWidgets()[0]
             self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
+            self.on_select()
 
     def get_app(self):
         app = QApplication.instance()
@@ -184,23 +199,20 @@ class CovExp (object):
         find_edge.InitIterator()
 
         while find_edge.More():
-            edge = find_edge.EdgeFrom()
+            edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
-
             plan = self.pln_on_face(face)
-            pln_angle = self.tmp_axis.Angle(plan.Position())
-            lin_angle = self.tmp_axis.Angle(axs1_to_axs3(line.Position()))
-            #print(face, self.cal_are(face), plan)
+
+            plan_axs = plan.Position()
+            line_axs = line.Position()
+
             print(self.tmp_axis.Axis())
             print(plan.Position().Axis())
-            print(np.rad2deg(pln_angle))
-            # print(np.rad2deg(lin_angle))
             #print(self.cal_len(edge), self.cal_are(face))
 
-            new_face = self.face_rotate(face, line.Position(), -pln_angle)
+            new_face = self.face_rotate(face, line_axs)
             #self.face_tranfer(face, plan.Axis())
-            if self.show == True:
-                self.display.DisplayShape(new_face, transparency=0.5)
+            
 
             plan = self.pln_on_face(face)
             print(face, self.cal_are(face), plan)
@@ -215,16 +227,31 @@ class CovExp (object):
         face.Location(loc_face)
         return face
 
-    def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1(), angle=0):
+    def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1()):
         plan = self.pln_on_face(face)
-        axs3 = plan.Position()
+        plan_axs = plan.Position()
+
+        pln_angle = self.tmp_axis.Angle(plan_axs)
+        ref_angle = self.tmp_axis.Direction().AngleWithRef(
+            plan_axs.Direction(), axs.Direction())
+        print(np.rad2deg(pln_angle), np.rad2deg(ref_angle))
 
         trf = gp_Trsf()
-        trf.SetRotation(axs, angle)
+        if np.abs(ref_angle) >= np.pi / 2:
+            trf.SetRotation(axs, -ref_angle)
+        elif 0 < ref_angle < np.pi / 2:
+            trf.SetRotation(axs, np.pi - ref_angle)
+        elif -np.pi / 2 < ref_angle < 0:
+            trf.SetRotation(axs, -ref_angle - np.pi)
+        else:
+            trf.SetRotation(axs, -ref_angle)
         #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         loc_face = TopLoc_Location(trf)
         new_face = face.Located(loc_face)
         # face.Location(loc_face)
+        if self.show == True:
+            self.display.DisplayShape(new_face)
+            self.display.DisplayMessage(axs.Location(), "P1")
         return new_face
 
     def face_init(self, face=TopoDS_Face()):
@@ -234,7 +261,8 @@ class CovExp (object):
         print(self.tmp_axis)
 
         if self.show == True:
-            self.display.DisplayShape(axs_pln(self.tmp_axis))
+            # self.display.DisplayShape(axs_pln(self.tmp_axis))
+            pass
 
     def prop_soild(self, sol=TopoDS_Solid()):
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
@@ -248,7 +276,6 @@ class CovExp (object):
         while sol_exp.More():
             face = sol_exp.Current()
             self.face_expand(face)
-            # self.face_init(sol_exp.Current())
             sol_exp.Next()
 
         """self.face_init(face)
@@ -268,7 +295,7 @@ class CovExp (object):
 
 if __name__ == "__main__":
     obj = CovExp(show=True)
-    obj.split_run(1)
+    obj.split_run(2)
     # obj.prop_solids()
 
     sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
