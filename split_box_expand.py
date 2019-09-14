@@ -18,7 +18,7 @@ from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
-from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
@@ -39,15 +39,30 @@ class CovExp (object):
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
 
-    def fileout(self):
+    def display(self):
+        self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
+        colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
+
         num = 0
-        stp_file = "./shp/shp_{:04d}.stp".format(num)
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        while sol_exp.More():
+            num += 1
+            self.display.DisplayShape(
+                sol_exp.Current(), color=colors[num % len(colors)], transparency=0.5)
+            sol_exp.Next()
+
+        self.display.FitAll()
+        self.start_display()
+
+    def fileout(self, dirname="./shp/"):
+        num = 0
+        stp_file = dirname + "shp_{:04d}.stp".format(num)
         write_step_file(self.base, stp_file)
 
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while sol_exp.More():
             num += 1
-            stp_file = "./shp/shp_{:04d}.stp".format(num)
+            stp_file = dirname + "shp_{:04d}.stp".format(num)
             write_step_file(sol_exp.Current(), stp_file)
             sol_exp.Next()
 
@@ -131,10 +146,10 @@ class CovExp (object):
             sol_exp.Next()
 
     def prop_solids(self):
-        self.exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
-        while self.exp.More():
-            self.prop_soild(self.exp.Current())
-            self.exp.Next()
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        while sol_exp.More():
+            self.prop_soild(sol_exp.Current())
+            sol_exp.Next()
 
 
 if __name__ == "__main__":
@@ -144,4 +159,6 @@ if __name__ == "__main__":
 
     print(obj.cal_vol())
     obj.prop_soild(obj.base)
+
     # obj.fileout()
+    # obj.display()
