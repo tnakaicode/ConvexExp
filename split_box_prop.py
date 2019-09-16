@@ -19,8 +19,6 @@ from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.TCollection import TCollection_ExtendedString_IsEqual
 from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
-from OCC.Core.GeomAPI import GeomAPI_ProjectPointOnSurf, GeomAPI_ProjectPointOnCurve
-from OCC.Core.GeomAPI import GeomAPI_PointsToBSplineSurface, GeomAPI_IntCS
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face
 from OCC.Extend.TopologyUtils import TopologyExplorer
@@ -62,16 +60,17 @@ class CovExp (object):
         print(top.number_of_faces(), top.number_of_edges())
 
         exp = TopExp_Explorer(sol, TopAbs_FACE)
-        self.current_face = exp.Current()
-        face_top = TopologyExplorer(self.current_face)
+        fc0 = exp.Current()
+        face_top = TopologyExplorer(fc0)
         print(face_top.number_of_edges())
         exp.Next()
 
         while exp.More():
             fc1 = exp.Current()
-            edge_find = LocOpe_FindEdges(self.current_face, fc1)
+            edge_find = LocOpe_FindEdges(fc0, fc1)
             edge_find.InitIterator()
             while edge_find.More():
+                b_edge = edge_find.EdgeFrom()
                 print(edge_find.EdgeFrom(), edge_find.EdgeTo())
                 edge_find.Next()
             exp.Next()
