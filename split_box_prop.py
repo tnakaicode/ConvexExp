@@ -11,7 +11,7 @@ from OCC.Core.BRepLProp import BRepLProp_CLProps
 from OCC.Core.BRepGProp import brepgprop_SurfaceProperties, brepgprop_VolumeProperties, brepgprop_LinearProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
-from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
+from OCC.Core.BOPAlgo import BOPAlgo_Splitter, BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Solid, TopoDS_Shape, TopoDS_Face
@@ -20,7 +20,6 @@ from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.LocOpe import LocOpe_FindEdges, LocOpe_FindEdgesInFace
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face
 from OCC.Extend.TopologyUtils import TopologyExplorer
@@ -34,7 +33,7 @@ class CovExp (object):
         self.base = make_box(1000, 1000, 1000)
         self.base_vol = self.cal_vol(self.base)
 
-        self.splitter = GEOMAlgo_Splitter()
+        self.splitter = BOPAlgo_Splitter()
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
 

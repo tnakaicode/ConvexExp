@@ -6,8 +6,7 @@ from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.TopoDS import TopoDS_Compound
 from OCC.Core.BRep import BRep_Builder
 from OCC.Core.BRepGProp import brepgprop_LinearProperties
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
-from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
+from OCC.Core.BOPAlgo import BOPAlgo_Splitter, BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.TopExp import TopExp_Explorer
@@ -24,7 +23,7 @@ if __name__ == "__main__":
     stpname = "{}/shp_{:04d}.stp".format("./shp/", num)
     write_step_file(box, stpname)
 
-    splitter = GEOMAlgo_Splitter()
+    splitter = BOPAlgo_Splitter()
     splitter.AddArgument(box)
 
     for i in range(7):
