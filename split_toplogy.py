@@ -20,7 +20,8 @@ import sys
 
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeFace
 from OCC.Display.SimpleGui import init_display
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+#from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.BOPAlgo import BOPAlgo_Builder
 from OCC.Core.TopAbs import TopAbs_EDGE
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.gp import gp_Dir, gp_Pln, gp_Pnt
@@ -38,11 +39,11 @@ def split_face_with_edge(event=None):
     p2 = gp_Pnt(0, 0, -15)
     edge = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
     # Initialize splitter
-    splitter = GEOMAlgo_Splitter()
+    splitter = BOPAlgo_Builder()
     # Add the face as an argument and the edge as a tool. This will split
     # the face with the edge.
     splitter.AddArgument(face)
-    splitter.AddTool(edge)
+    splitter.AddArgument(edge)
     splitter.Perform()
     display.DisplayShape(splitter.Shape())
     display.FitAll()
@@ -58,11 +59,11 @@ def split_edge_with_face(event=None):
     p2 = gp_Pnt(0, 0, -15)
     edge = BRepBuilderAPI_MakeEdge(p1, p2).Edge()
     # Initialize splitter
-    splitter = GEOMAlgo_Splitter()
+    splitter = BOPAlgo_Builder()
     # Add the edge as an argument and the face as a tool. This will split
     # the edge with the face.
     splitter.AddArgument(edge)
-    splitter.AddTool(face)
+    splitter.AddArgument(face)
     splitter.Perform()
 
     edges = []

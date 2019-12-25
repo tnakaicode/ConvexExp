@@ -1,13 +1,15 @@
 import numpy as np
 import random
 
+from base import plotocc
+
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pln
 from OCC.Core.gp import gp_Pnt, gp_Vec
 from OCC.Core.TopoDS import TopoDS_Compound
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.BRep import BRep_Builder
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+#from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SHAPE, TopAbs_SOLID
 from OCC.Core.TopExp import TopExp_Explorer
 from OCCUtils.Topology import Topo
@@ -16,7 +18,7 @@ from OCCUtils.Construct import vec_to_dir
 
 
 if __name__ == "__main__":
-    display, start_display, add_menu, add_function_to_menu = init_display()
+    obj = plotocc(show=True)
 
     box = make_box(100, 100, 100)
 
@@ -31,13 +33,11 @@ if __name__ == "__main__":
         print(pnt, vec)
 
     bo.Perform()
-    print("error status: {}".format(bo.ErrorStatus()))
     colos = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
 
     top = Topo(bo.Shape())
     for i, sol in enumerate(top.solids()):
-        display.DisplayShape(
+        obj.display.DisplayShape(
             sol, color=colos[i % len(colos)], transparency=0.5)
 
-    display.FitAll()
-    start_display()
+    obj.show()

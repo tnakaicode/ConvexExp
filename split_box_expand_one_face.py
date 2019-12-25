@@ -27,10 +27,7 @@ from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
-from OCC.TopAbs import TopAbs_VERTEX
-from OCC.TopoDS import TopoDS_Iterator, topods_Vertex
 from OCCUtils.Topology import shapeTypeString, dumpTopology
-
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
 from PyQt5.QtWidgets import QApplication, qApp

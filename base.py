@@ -2,10 +2,15 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import sys
-import pickle
+import os
+import json
+import logging
 from matplotlib import animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.mplot3d import Axes3D
+
+import logging
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
@@ -14,8 +19,17 @@ from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_XYZ
-from OCC.Core.gp import gp_Lin, gp_Elips
+from OCC.Core.gp import gp_Lin, gp_Elips, gp_Pln
 from OCC.Core.gp import gp_Mat, gp_GTrsf, gp_Trsf
+from OCC.Core.BRep import BRep_Builder, BRep_Tool
+from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
+from OCC.Core.BRepGProp import brepgprop_VolumeProperties
+from OCC.Core.BRepGProp import brepgprop_LinearProperties
+from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeWire
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
+from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_GTransform
+from OCC.Core.BOPAlgo import BOPAlgo_Splitter, BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TColgp import TColgp_Array1OfPnt, TColgp_Array2OfPnt
 from OCC.Core.TColgp import TColgp_HArray1OfPnt, TColgp_HArray2OfPnt
@@ -24,13 +38,11 @@ from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Builder
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_CompSolid
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
 from OCC.Core.TopoDS import TopoDS_Iterator, topods_Vertex
-from OCC.Core.TopAbs import TopAbs_VERTEX
-from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
-from OCC.Core.BRep import BRep_Builder, BRep_Tool
-from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeWire
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeFace
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_GTransform
+from OCC.Core.TopAbs import TopAbs_VERTEX, TopAbs_EDGE, TopAbs_SOLID
+from OCC.Core.TopAbs import TopAbs_WIRE, TopAbs_FACE, TopAbs_SHELL
+from OCC.Core.TopAbs import TopAbs_COMPSOLID, TopAbs_COMPOUND
+from OCC.Core.TopExp import TopExp_Explorer
+from OCC.Core.GProp import GProp_GProps
 from OCC.Core.GeomAPI import geomapi
 from OCC.Core.GeomAPI import GeomAPI_PointsToBSplineSurface
 from OCC.Core.GeomAPI import GeomAPI_PointsToBSpline
@@ -40,14 +52,20 @@ from OCC.Core.GeomAbs import GeomAbs_G1, GeomAbs_G2
 from OCC.Core.GeomFill import GeomFill_BoundWithSurf
 from OCC.Core.GeomFill import GeomFill_BSplineCurves
 from OCC.Core.GeomFill import GeomFill_StretchStyle, GeomFill_CoonsStyle, GeomFill_CurvedStyle
-from OCC.Extend.TopologyUtils import dump_topology_to_string, get_type_as_string
+from OCC.Extend.DataExchange import write_step_file, read_step_file
 from OCCUtils.Construct import make_box, make_line, make_wire, make_edge
-from OCCUtils.Construct import make_plane, make_polygon
+from OCCUtils.Construct import make_plane, make_polygon, make_face
 from OCCUtils.Construct import point_to_vector, vector_to_point
 from OCCUtils.Construct import dir_to_vec, vec_to_dir
 
-import logging
-logging.getLogger('matplotlib').setLevel(logging.ERROR)
+
+def get_type_as_string(topods_shape):
+    """ just get the type string, remove TopAbs_ and lowercas all ending letters
+    """
+    types = {TopAbs_VERTEX: "Vertex", TopAbs_COMPSOLID: "CompSolid", TopAbs_FACE: "Face",
+             TopAbs_WIRE: "Wire", TopAbs_EDGE: "Edge", TopAbs_COMPOUND: "Compound",
+             TopAbs_SOLID: "Solid", TopAbs_SHELL: "Shell"}
+    return types[topods_shape.ShapeType()]
 
 
 def pnt_from_axs(axs=gp_Ax3(), length=100):
@@ -153,15 +171,15 @@ class plotocc (object):
 
     def __init__(self, show=False):
         self.base_axs = gp_Ax3()
-        
-        if self.show == True:
+
+        if show == True:
             self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
             from OCC.Display.qtDisplay import qtViewer3d
             self.app = self.get_app()
             self.wi = self.app.topLevelWidgets()[0]
             self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
             self.on_select()
-        
+
     def get_app(self):
         app = QApplication.instance()
         #app = qApp
@@ -298,3 +316,49 @@ class plotocc (object):
     def show(self):
         self.display.FitAll()
         self.start_display()
+
+
+class BoxSplit (plotocc):
+
+    def __init__(self, lxyz=[1000, 1000, 1000], show=False):
+        plotocc.__init__(self, show)
+        self.prop = GProp_GProps()
+        self.base = make_box(*lxyz)
+        self.base_vol = self.cal_vol(self.base)
+
+        self.splitter = BOPAlgo_Splitter()
+        self.splitter.AddArgument(self.base)
+        print(self.cal_vol(self.base))
+
+    def split_run(self, num=5):
+        for i in range(num):
+            pnt = gp_Pnt(*np.random.rand(3) * 1000)
+            vec = gp_Vec(*np.random.randn(3))
+            pln = gp_Pln(pnt, vec_to_dir(vec))
+            fce = make_face(pln, -10000, 10000, -10000, 10000)
+            self.splitter.AddTool(fce)
+        self.splitter.Perform()
+
+    def fileout(self):
+        num = 0
+        stp_file = "./shp/shp_{:04d}.stp".format(num)
+        write_step_file(self.base, stp_file)
+
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        while sol_exp.More():
+            num += 1
+            stp_file = "./shp/shp_{:04d}.stp".format(num)
+            write_step_file(sol_exp.Current(), stp_file)
+            sol_exp.Next()
+
+    def cal_len(self, shp=TopoDS_Shape()):
+        brepgprop_LinearProperties(shp, self.prop)
+        return self.prop.Mass()
+
+    def cal_are(self, shp=TopoDS_Shape()):
+        brepgprop_SurfaceProperties(shp, self.prop)
+        return self.prop.Mass()
+
+    def cal_vol(self, shp=TopoDS_Shape()):
+        brepgprop_VolumeProperties(shp, self.prop)
+        return self.prop.Mass()

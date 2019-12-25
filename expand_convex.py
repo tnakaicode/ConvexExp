@@ -1,5 +1,13 @@
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.tri as tri
 import sys
+import os
+import json
+import logging
+from matplotlib import animation
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+from mpl_toolkits.mplot3d import Axes3D
 
 import logging
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
@@ -9,7 +17,6 @@ from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_Pln, gp_Lin
 from OCC.Core.gp import gp_Trsf
-from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCC.Core.BRepLProp import BRepLProp_CLProps
@@ -20,13 +27,14 @@ from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.LocOpe import LocOpe_FindEdges
+from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Builder
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_CompSolid
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
 from OCC.Core.TopoDS import TopoDS_Iterator, topods_Vertex
-from OCC.Core.TopAbs import TopAbs_VERTEX
-from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
+from OCC.Core.TopAbs import TopAbs_VERTEX, TopAbs_EDGE, TopAbs_FACE
+from OCC.Core.TopAbs import TopAbs_SOLID, TopAbs_COMPOUND
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
 #from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
@@ -35,37 +43,13 @@ from OCC.Extend.DataExchange import read_step_file
 from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Extend.TopologyUtils import dump_topology_to_string, get_type_as_string
-from OCCUtils.Construct import vec_to_dir, dir_to_vec
+from OCCUtils.Construct import point_to_vector, vector_to_point
+from OCCUtils.Construct import dir_to_vec, vec_to_dir
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 
 from base import plotocc
-
-
-def axs1_to_axs3(axs=gp_Ax1()):
-    return gp_Ax3(axs.Location(), axs.Direction())
-
-
-def axs_pln(axs):
-    pnt = axs.Location()
-    vx = dir_to_vec(axs.XDirection()).Scaled(100)
-    vy = dir_to_vec(axs.YDirection()).Scaled(200)
-    vz = dir_to_vec(axs.Direction()).Scaled(300)
-    lx = make_edge(pnt, gp_Pnt((gp_Vec(pnt.XYZ()) + vx).XYZ()))
-    ly = make_edge(pnt, gp_Pnt((gp_Vec(pnt.XYZ()) + vy).XYZ()))
-    lz = make_edge(pnt, gp_Pnt((gp_Vec(pnt.XYZ()) + vz).XYZ()))
-    return lx, ly, lz
-
-
-def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
-    org_angle = ax0.Angle(ax1)
-    ref_angle = ax0.Direction().AngleWithRef(ax1.Direction(), ax0.XDirection())
-
-    if np.sign(org_angle) == np.sign(ref_angle):
-        return org_angle
-    else:
-        return np.pi - ref_angle
 
 
 class CovExp (plotocc):
@@ -266,8 +250,6 @@ class CovExp (plotocc):
 
 if __name__ == "__main__":
     obj = CovExp(stpfile="./shp/shp_0019.stp", show=True)
-
     print(obj.cal_vol())
     obj.prop_soild(obj.base)
-
     obj.ShowDisplay()
