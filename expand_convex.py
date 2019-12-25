@@ -1,6 +1,9 @@
 import numpy as np
 import sys
 
+import logging
+logging.getLogger('matplotlib').setLevel(logging.ERROR)
+
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
@@ -26,7 +29,7 @@ from OCC.Core.TopAbs import TopAbs_VERTEX
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+#from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.DataExchange import read_step_file
 from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
@@ -36,6 +39,8 @@ from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
+
+from base import plotocc
 
 
 def axs1_to_axs3(axs=gp_Ax1()):
@@ -63,7 +68,7 @@ def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
         return np.pi - ref_angle
 
 
-class CovExp (object):
+class CovExp (plotocc):
 
     def __init__(self, stpfile="./shp/shp_0001.stp", file=False, show=False):
         self.prop = GProp_GProps()
@@ -73,55 +78,7 @@ class CovExp (object):
         self.show = show
         self.file = file
 
-        if self.show == True:
-            self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
-            from OCC.Display.qtDisplay import qtViewer3d
-            self.app = self.get_app()
-            self.wi = self.app.topLevelWidgets()[0]
-            self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
-            self.on_select()
-
-    def get_app(self):
-        app = QApplication.instance()
-        #app = qApp
-        # checks if QApplication already exists
-        if not app:
-            app = QApplication(sys.argv)
-        return app
-
-    def on_select(self):
-        self.vi.sig_topods_selected.connect(self._on_select)
-
-    def _on_select(self, shapes):
-        """
-        Parameters
-        ----------
-        shape : TopoDS_Shape
-        """
-        for shape in shapes:
-            self.DumpTop(shape)
-
-    def DumpTop(self, shape, level=0):
-        """
-        Print the details of an object from the top down
-        """
-        brt = BRep_Tool()
-        s = shape.ShapeType()
-        if s == TopAbs_VERTEX:
-            pnt = brt.Pnt(topods_Vertex(shape))
-            dmp = " " * level
-            dmp += "%s - " % get_type_as_string(shape)
-            dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
-            print(dmp)
-        else:
-            dmp = " " * level
-            dmp += get_type_as_string(shape)
-            print(dmp)
-        it = TopoDS_Iterator(shape)
-        while it.More():
-            shp = it.Value()
-            it.Next()
-            self.DumpTop(shp, level + 1)
+        plotocc.__init__(self, self.show)
 
     def ShowDisplay(self):
         self.display.DisplayShape(self.base, color="BLUE", transparency=0.5)
@@ -252,7 +209,7 @@ class CovExp (object):
         #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         loc_face = TopLoc_Location(trf)
         new_face = face.Located(loc_face)
-        #self.sol_builder.Add(new_face)
+        # self.sol_builder.Add(new_face)
         self.face_lst.Append(new_face)
         # face.Location(loc_face)
         if self.show == True:
@@ -309,7 +266,7 @@ class CovExp (object):
 
 if __name__ == "__main__":
     obj = CovExp(stpfile="./shp/shp_0019.stp", show=True)
-    
+
     print(obj.cal_vol())
     obj.prop_soild(obj.base)
 
