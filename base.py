@@ -171,8 +171,8 @@ class GenCompound (object):
 
 class BoxSplit (plotocc):
 
-    def __init__(self, lxyz=[1000, 1000, 1000], show=False):
-        plotocc.__init__(self, show)
+    def __init__(self, lxyz=[1000, 1000, 1000]):
+        plotocc.__init__(self)
         self.prop = GProp_GProps()
         self.base = make_box(*lxyz)
         self.base_vol = self.cal_vol(self.base)

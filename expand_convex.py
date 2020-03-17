@@ -54,15 +54,11 @@ from base import plotocc
 
 class CovExp (plotocc):
 
-    def __init__(self, stpfile="./shp/shp_0001.stp", file=False, show=False):
+    def __init__(self, stpfile="./shp/Box.stp", file=False, show=False):
+        plotocc.__init__(self, self.show)
         self.prop = GProp_GProps()
         self.base = read_step_file(stpfile)
         self.base_vol = self.cal_vol(self.base)
-
-        self.show = show
-        self.file = file
-
-        plotocc.__init__(self, self.show)
 
     def ShowDisplay(self):
         self.display.DisplayShape(self.base, color="BLUE", transparency=0.5)
@@ -220,14 +216,14 @@ class CovExp (plotocc):
             self.face_expand(face)
             sol_exp.Next()
 
-        if self.file == True:
-            stp_file = "./shp/shp_{:04d}.stp".format(self.sol_num)
-            write_step_file(sol, stp_file)
-
-            stp_file = "./shp/shp_{:04d}_exp.stp".format(self.sol_num)
-            new_shpe = TopoDS_Compound()
-            self.sol_builder.MakeCompSolid(new_shpe)
-            write_step_file(new_shpe, stp_file)
+        # if self.file == True:
+        #    stp_file = "./shp/shp_{:04d}.stp".format(self.sol_num)
+        #    write_step_file(sol, stp_file)
+        #
+        #    stp_file = "./shp/shp_{:04d}_exp.stp".format(self.sol_num)
+        #    new_shpe = TopoDS_Compound()
+        #    self.sol_builder.MakeCompSolid(new_shpe)
+        #    write_step_file(new_shpe, stp_file)
 
         # if self.show == True:
         #    self.display.DisplayShape(self.face_cnt)
@@ -249,7 +245,7 @@ class CovExp (plotocc):
 
 
 if __name__ == "__main__":
-    obj = CovExp(stpfile="./shp/shp_0019.stp", show=True)
+    obj = CovExp()
     print(obj.cal_vol())
     obj.prop_soild(obj.base)
     obj.ShowDisplay()
