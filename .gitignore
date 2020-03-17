@@ -1,12 +1,17 @@
+*.pdf
+*.html
 .vscode/*
-.*/*
-.vscode/settings.json
 
 # Byte-compiled / optimized / DLL files
-
 __pycache__/
 *.py[cod]
 *.pyc[cod]
 
-# CAD file
-shp*/*
+# Temp
+tmp/*
+cfd_python/ch10/*
+temp_*/*
+*/temp_*/*
+
+# cpp
+a.exe

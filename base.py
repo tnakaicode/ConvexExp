@@ -58,6 +58,8 @@ from OCCUtils.Construct import make_plane, make_polygon, make_face
 from OCCUtils.Construct import point_to_vector, vector_to_point
 from OCCUtils.Construct import dir_to_vec, vec_to_dir
 
+from PlotBase import plotocc
+
 
 def get_type_as_string(topods_shape):
     """ just get the type string, remove TopAbs_ and lowercas all ending letters
@@ -167,157 +169,6 @@ class GenCompound (object):
         self.builder.MakeCompound(compound)
 
 
-class plotocc (object):
-
-    def __init__(self, show=False):
-        self.base_axs = gp_Ax3()
-
-        if show == True:
-            self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
-            from OCC.Display.qtDisplay import qtViewer3d
-            self.app = self.get_app()
-            self.wi = self.app.topLevelWidgets()[0]
-            self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
-            self.on_select()
-
-    def get_app(self):
-        app = QApplication.instance()
-        #app = qApp
-        # checks if QApplication already exists
-        if not app:
-            app = QApplication(sys.argv)
-        return app
-
-    def on_select(self):
-        self.vi.sig_topods_selected.connect(self._on_select)
-
-    def _on_select(self, shapes):
-        """
-        Parameters
-        ----------
-        shape : TopoDS_Shape
-        """
-        for shape in shapes:
-            self.DumpTop(shape)
-
-    def DumpTop(self, shape, level=0):
-        """
-        Print the details of an object from the top down
-        """
-        brt = BRep_Tool()
-        s = shape.ShapeType()
-        if s == TopAbs_VERTEX:
-            pnt = brt.Pnt(topods_Vertex(shape))
-            dmp = " " * level
-            dmp += "%s - " % get_type_as_string(shape)
-            dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
-            print(dmp)
-        else:
-            dmp = " " * level
-            dmp += get_type_as_string(shape)
-            print(dmp)
-        it = TopoDS_Iterator(shape)
-        while it.More():
-            shp = it.Value()
-            it.Next()
-            self.DumpTop(shp, level + 1)
-
-    def show_box(self, axs=gp_Ax3(), lxyz=[100, 100, 100]):
-        box = make_box(*lxyz)
-        ax1 = gp_Ax3(
-            gp_Pnt(-lxyz[0] / 2, -lxyz[1] / 2, -lxyz[2] / 2),
-            gp_Dir(0, 0, 1)
-        )
-        trf = gp_Trsf()
-        trf.SetTransformation(axs, gp_Ax3())
-        trf.SetTransformation(ax1, gp_Ax3())
-        box.Location(TopLoc_Location(trf))
-        self.display.DisplayShape(axs.Location())
-        self.show_axs_pln(axs, scale=lxyz[0])
-        self.display.DisplayShape(box, transparency=0.7)
-
-    def show_pnt(self, xyz=[0, 0, 0]):
-        self.display.DisplayShape(gp_Pnt(*xyz))
-
-    def show_pts(self, pts=[gp_Pnt()], num=1):
-        for p in pts[::num]:
-            self.display.DisplayShape(p)
-        self.display.DisplayShape(make_polygon(pts))
-
-    def show_ball(self, scale=100, trans=0.5):
-        shape = BRepPrimAPI_MakeSphere(scale).Shape()
-        self.display.DisplayShape(shape, transparency=trans)
-
-    def show_vec(self, beam=gp_Ax3(), scale=1.0):
-        pnt = beam.Location()
-        vec = dir_to_vec(beam.Direction()).Scaled(scale)
-        print(vec.Magnitude())
-        self.display.DisplayVector(vec, pnt)
-
-    def show_ellipsoid(self, axs=gp_Ax3(), rxyz=[10., 10., 10.], trans=0.5):
-        shape = gen_ellipsoid(axs, rxyz)
-        self.display.DisplayShape(shape, transparency=trans, color="BLUE")
-        return shape
-
-    def show_axs_pln(self, axs=gp_Ax3(), scale=100):
-        pnt = axs.Location()
-        dx = axs.XDirection()
-        dy = axs.YDirection()
-        dz = axs.Direction()
-        vx = dir_to_vec(dx).Scaled(1 * scale)
-        vy = dir_to_vec(dy).Scaled(2 * scale)
-        vz = dir_to_vec(dz).Scaled(3 * scale)
-
-        pnt_x = pnt_trf_vec(pnt, vx)
-        pnt_y = pnt_trf_vec(pnt, vy)
-        pnt_z = pnt_trf_vec(pnt, vz)
-        self.display.DisplayShape(pnt)
-        self.display.DisplayShape(make_line(pnt, pnt_x), color="RED")
-        self.display.DisplayShape(make_line(pnt, pnt_y), color="GREEN")
-        self.display.DisplayShape(make_line(pnt, pnt_z), color="BLUE")
-
-    def show_plane(self, axs=gp_Ax3(), scale=100):
-        pnt = axs.Location()
-        vec = dir_to_vec(axs.Direction())
-        pln = make_plane(pnt, vec, -scale, scale, -scale, scale)
-        self.display.DisplayShape(pln)
-
-    def make_EllipWire(self, rxy=[1.0, 1.0], shft=0.0, axs=gp_Ax3()):
-        rx, ry = rxy
-        if rx > ry:
-            major_radi = rx
-            minor_radi = ry
-            axis = gp_Ax2()
-            axis.SetXDirection(axis.XDirection())
-        else:
-            major_radi = ry
-            minor_radi = rx
-            axis = gp_Ax2()
-            axis.SetXDirection(axis.YDirection())
-        axis.Rotate(axis.Axis(), np.deg2rad(shft))
-        elip = make_edge(gp_Elips(axis, major_radi, minor_radi))
-        poly = make_wire(elip)
-        poly.Location(set_loc(gp_Ax3(), axs))
-        return poly
-
-    def make_PolyWire(self, num=6, radi=1.0, shft=0.0, axs=gp_Ax3()):
-        lxy = radi
-        pnts = []
-        angl = 360 / num
-        for i in range(num):
-            thet = np.deg2rad(i * angl) + np.deg2rad(shft)
-            x, y = radi * np.sin(thet), radi * np.cos(thet)
-            pnts.append(gp_Pnt(x, y, 0))
-        pnts.append(pnts[0])
-        poly = make_polygon(pnts)
-        poly.Location(set_loc(gp_Ax3(), axs))
-        return poly
-
-    def show(self):
-        self.display.FitAll()
-        self.start_display()
-
-
 class BoxSplit (plotocc):
 
     def __init__(self, lxyz=[1000, 1000, 1000], show=False):
@@ -340,14 +191,15 @@ class BoxSplit (plotocc):
         self.splitter.Perform()
 
     def fileout(self):
+        write_step_file(self.base, "Box.stp")
         num = 0
-        stp_file = "./shp/shp_{:04d}.stp".format(num)
+        stp_file = self.tempname + "_{:04d}.stp".format(num)
         write_step_file(self.base, stp_file)
 
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while sol_exp.More():
             num += 1
-            stp_file = "./shp/shp_{:04d}.stp".format(num)
+            stp_file = self.tempname + "_{:04d}.stp".format(num)
             write_step_file(sol_exp.Current(), stp_file)
             sol_exp.Next()
 

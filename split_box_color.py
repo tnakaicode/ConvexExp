@@ -21,7 +21,6 @@ if __name__ == "__main__":
     obj = plotocc(show=True)
 
     box = make_box(100, 100, 100)
-
     bo = BOPAlgo_Builder()
     bo.AddArgument(box)
     for i in range(5):
