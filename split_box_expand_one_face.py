@@ -23,7 +23,7 @@ from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+#from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer

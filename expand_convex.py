@@ -40,11 +40,12 @@ from OCC.Core.GProp import GProp_GProps
 #from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.DataExchange import read_step_file
-from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
+from OCC.Extend.ShapeFactory import make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Extend.TopologyUtils import dump_topology_to_string, get_type_as_string
 from OCCUtils.Construct import point_to_vector, vector_to_point
 from OCCUtils.Construct import dir_to_vec, vec_to_dir
+from OCCUtils.Construct import make_box
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox

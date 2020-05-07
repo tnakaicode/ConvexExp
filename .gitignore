@@ -15,3 +15,6 @@ temp_*/*
 
 # cpp
 a.exe
+
+# Shape
+shp/shp_*
