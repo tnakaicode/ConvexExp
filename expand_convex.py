@@ -56,15 +56,15 @@ from base import plotocc
 class CovExp (plotocc):
 
     def __init__(self, stpfile="./shp/Box.stp", file=False, show=False):
-        plotocc.__init__(self, self.show)
+        plotocc.__init__(self)
+        self.SaveMenu()
         self.prop = GProp_GProps()
         self.base = read_step_file(stpfile)
         self.base_vol = self.cal_vol(self.base)
 
     def ShowDisplay(self):
         self.display.DisplayShape(self.base, color="BLUE", transparency=0.5)
-        self.display.FitAll()
-        self.start_display()
+        self.show()
 
     def fileout(self, dirname="./shp/"):
         num = 0

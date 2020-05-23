@@ -667,8 +667,9 @@ class plotocc (SetDir):
         pngname = create_tempnum(self.rootname, self.tmpdir, ".png")
         self.display.View.Dump(pngname)
 
-    def export_stp(self, shp):
-        stpname = create_tempnum(self.rootname, self.tmpdir, ".stp")
+    def export_stp(self, shp, stpname=None):
+        if stpname == None:
+            stpname = create_tempnum(self.rootname, self.tmpdir, ".stp")
         write_step_file(shp, stpname)
 
     def show(self):

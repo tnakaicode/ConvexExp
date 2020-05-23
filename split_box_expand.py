@@ -26,12 +26,14 @@ from OCC.Core.TopAbs import TopAbs_VERTEX
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
-from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+#from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.BOPAlgo import BOPAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
-from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
+from OCC.Extend.ShapeFactory import make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Extend.TopologyUtils import dump_topology_to_string, get_type_as_string
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
+from OCCUtils.Construct import make_box
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
@@ -69,7 +71,7 @@ class CovExp (object):
         self.base = make_box(100, 100, 100)
         self.base_vol = self.cal_vol(self.base)
 
-        self.splitter = GEOMAlgo_Splitter()
+        self.splitter = BOPAlgo_Splitter()
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
 
@@ -264,7 +266,7 @@ class CovExp (object):
         #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         loc_face = TopLoc_Location(trf)
         new_face = face.Located(loc_face)
-        self.sol_builder.Add(new_face)
+        #self.sol_builder.Add(new_face)
         self.face_lst.Append(new_face)
         # face.Location(loc_face)
         if self.show == True:
@@ -283,7 +285,7 @@ class CovExp (object):
         self.face_cnt = []
         self.face_num = 0
         self.face_init(sol_exp.Current())
-        self.sol_builder.Add(sol, sol_exp.Current())
+        #self.sol_builder.Add(sol, sol_exp.Current())
         sol_exp.Next()
 
         while sol_exp.More():
@@ -297,8 +299,9 @@ class CovExp (object):
 
             stp_file = "./shp/shp_{:04d}_exp.stp".format(self.sol_num)
             new_shpe = TopoDS_Compound()
-            self.sol_builder.MakeCompSolid(new_shpe)
-            write_step_file(new_shpe, stp_file)
+            self.sol_builder.Add(gp_Pnt())
+            #self.sol_builder.MakeCompSolid(new_shpe)
+            #write_step_file(new_shpe, stp_file)
 
         # if self.show == True:
         #    self.display.DisplayShape(self.face_cnt)
