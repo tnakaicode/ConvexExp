@@ -198,9 +198,8 @@ class CovExp (dispocc):
         loc_face = TopLoc_Location(trf)
         new_face = face.Located(loc_face)
         # face.Location(loc_face)
-        if self.show == True:
-            self.display.DisplayShape(new_face)
-            self.display.DisplayMessage(axs.Location(), "P1")
+        self.display.DisplayShape(new_face)
+        self.display.DisplayMessage(axs.Location(), "P1")
         return new_face
 
     def face_init(self, face=TopoDS_Face()):
@@ -243,7 +242,7 @@ class CovExp (dispocc):
 
 
 if __name__ == "__main__":
-    obj = CovExp(show=True)
+    obj = CovExp(touch=True)
     obj.split_run(2)
     # obj.prop_solids()
 

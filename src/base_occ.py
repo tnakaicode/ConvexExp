@@ -326,6 +326,10 @@ class dispocc (SetDir, OCCViewer):
         if self.touch == True:
             self.add_function("File", self.export_stp_selected)
             self.add_function("File", self.clear_selected)
+        self.add_function("File", self.exit)
+
+    def exit(self, event=None):
+        sys.exit()
 
     def export_cap(self):
         pngname = create_tempnum(self.rootname, self.tmpdir, ".png")
