@@ -483,7 +483,7 @@ class GenCompound (object):
     def __init__(self):
         self.builder = BRep_Builder()
         self.compound = TopoDS_Compound()
-        self.builder.MakeCompound(compound)
+        self.builder.MakeCompound(self.compound)
 
 
 class plotocc (SetDir):
@@ -889,7 +889,7 @@ class GenCompound (object):
     def __init__(self):
         self.builder = BRep_Builder()
         self.compound = TopoDS_Compound()
-        self.builder.MakeCompound(compound)
+        self.builder.MakeCompound(self.compound)
 
 
 class BoxSplit (plotocc):

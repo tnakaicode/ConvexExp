@@ -24,8 +24,8 @@ from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 # pip install PyQt5
 
-from base import SetDir
-from base import gen_ellipsoid, pnt_from_axs, pnt_trf_vec, set_loc, set_trf, create_tempdir, create_tempnum
+from src.base import SetDir, create_tempdir, create_tempnum
+from src.base import gen_ellipsoid, pnt_from_axs, pnt_trf_vec, set_loc, set_trf
 from src.OCCGui import init_qtdisplay
 
 from OCC.Display.SimpleGui import init_display
