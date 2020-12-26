@@ -25,8 +25,9 @@ from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
 #from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
-from OCC.Extend.ShapeFactory import make_box, make_face, make_edge
+from OCC.Extend.ShapeFactory import make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
+from OCCUtils.Construct import make_box
 from OCCUtils.Topology import shapeTypeString, dumpTopology
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
