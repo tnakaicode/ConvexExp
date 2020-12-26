@@ -1,22 +1,18 @@
 import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.tri as tri
+import sys
 import sys
 import os
-import json
-import logging
-from matplotlib import animation
-from mpl_toolkits.axes_grid1 import make_axes_locatable
-from mpl_toolkits.mplot3d import Axes3D
+import time
 
-import logging
-logging.getLogger('matplotlib').setLevel(logging.ERROR)
+sys.path.append(os.path.join("../"))
+from src.base import plot2d, plotocc
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_Pln, gp_Lin
 from OCC.Core.gp import gp_Trsf
+from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCC.Core.BRepLProp import BRepLProp_CLProps
@@ -27,44 +23,126 @@ from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
 from OCC.Core.LocOpe import LocOpe_FindEdges
-from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Builder
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_CompSolid
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
 from OCC.Core.TopoDS import TopoDS_Iterator, topods_Vertex
-from OCC.Core.TopAbs import TopAbs_VERTEX, TopAbs_EDGE, TopAbs_FACE
-from OCC.Core.TopAbs import TopAbs_SOLID, TopAbs_COMPOUND
+from OCC.Core.TopAbs import TopAbs_VERTEX
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
 #from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.BOPAlgo import BOPAlgo_Splitter
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
-from OCC.Extend.DataExchange import read_step_file
 from OCC.Extend.ShapeFactory import make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCC.Extend.TopologyUtils import dump_topology_to_string, get_type_as_string
-from OCCUtils.Construct import point_to_vector, vector_to_point
-from OCCUtils.Construct import dir_to_vec, vec_to_dir
+from OCCUtils.Construct import vec_to_dir, dir_to_vec
 from OCCUtils.Construct import make_box
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 
-from src.base import plotocc
+
+def axs1_to_axs3(axs=gp_Ax1()):
+    return gp_Ax3(axs.Location(), axs.Direction())
+
+
+def axs_pln(axs):
+    pnt = axs.Location()
+    vx = dir_to_vec(axs.XDirection()).Scaled(100)
+    vy = dir_to_vec(axs.YDirection()).Scaled(200)
+    vz = dir_to_vec(axs.Direction()).Scaled(300)
+    lx = make_edge(pnt, gp_Pnt((gp_Vec(pnt.XYZ()) + vx).XYZ()))
+    ly = make_edge(pnt, gp_Pnt((gp_Vec(pnt.XYZ()) + vy).XYZ()))
+    lz = make_edge(pnt, gp_Pnt((gp_Vec(pnt.XYZ()) + vz).XYZ()))
+    return lx, ly, lz
+
+
+def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
+    org_angle = ax0.Angle(ax1)
+    ref_angle = ax0.Direction().AngleWithRef(ax1.Direction(), ax0.XDirection())
+
+    if np.sign(org_angle) == np.sign(ref_angle):
+        return org_angle
+    else:
+        return np.pi - ref_angle
 
 
 class CovExp (plotocc):
 
-    def __init__(self, stpfile="./shp/Box.stp", file=False, show=False):
+    def __init__(self):
         plotocc.__init__(self)
-        self.SaveMenu()
         self.prop = GProp_GProps()
-        self.base = read_step_file(stpfile)
+        self.base = make_box(100, 100, 100)
         self.base_vol = self.cal_vol(self.base)
 
+        self.splitter = BOPAlgo_Splitter()
+        self.splitter.AddArgument(self.base)
+        print(self.cal_vol(self.base))
+
+        from OCC.Display.qtDisplay import qtViewer3d
+        self.app = self.get_app()
+        self.wi = self.app.topLevelWidgets()[0]
+        self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
+        self.on_select()
+
+    def get_app(self):
+        app = QApplication.instance()
+        #app = qApp
+        # checks if QApplication already exists
+        if not app:
+            app = QApplication(sys.argv)
+        return app
+
+    def on_select(self):
+        self.vi.sig_topods_selected.connect(self._on_select)
+
+    def _on_select(self, shapes):
+        """
+        Parameters
+        ----------
+        shape : TopoDS_Shape
+        """
+        for shape in shapes:
+            self.DumpTop(shape)
+
+    def DumpTop(self, shape, level=0):
+        """
+        Print the details of an object from the top down
+        """
+        brt = BRep_Tool()
+        s = shape.ShapeType()
+        if s == TopAbs_VERTEX:
+            pnt = brt.Pnt(topods_Vertex(shape))
+            dmp = " " * level
+            dmp += "%s - " % get_type_as_string(shape)
+            dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
+            print(dmp)
+        else:
+            dmp = " " * level
+            dmp += get_type_as_string(shape)
+            print(dmp)
+        it = TopoDS_Iterator(shape)
+        while it.More():
+            shp = it.Value()
+            it.Next()
+            self.DumpTop(shp, level + 1)
+
     def ShowDisplay(self):
-        self.display.DisplayShape(self.base, color="BLUE", transparency=0.5)
-        self.show()
+        colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
+
+        num = 0
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        while sol_exp.More():
+            num += 1
+            self.display.DisplayShape(
+                sol_exp.Current(), color=colors[num % len(colors)], transparency=0.5)
+            sol_exp.Next()
+
+        self.display.FitAll()
+        self.start_display()
 
     def fileout(self, dirname="./shp/"):
         num = 0
@@ -217,14 +295,15 @@ class CovExp (plotocc):
             self.face_expand(face)
             sol_exp.Next()
 
-        # if self.file == True:
-        #    stp_file = "./shp/shp_{:04d}.stp".format(self.sol_num)
-        #    write_step_file(sol, stp_file)
-        #
-        #    stp_file = "./shp/shp_{:04d}_exp.stp".format(self.sol_num)
-        #    new_shpe = TopoDS_Compound()
-        #    self.sol_builder.MakeCompSolid(new_shpe)
-        #    write_step_file(new_shpe, stp_file)
+        if self.file == True:
+            stp_file = "./shp/shp_{:04d}.stp".format(self.sol_num)
+            write_step_file(sol, stp_file)
+
+            stp_file = "./shp/shp_{:04d}_exp.stp".format(self.sol_num)
+            new_shpe = TopoDS_Compound()
+            self.sol_builder.Add(gp_Pnt())
+            # self.sol_builder.MakeCompSolid(new_shpe)
+            #write_step_file(new_shpe, stp_file)
 
         # if self.show == True:
         #    self.display.DisplayShape(self.face_cnt)
@@ -247,6 +326,5 @@ class CovExp (plotocc):
 
 if __name__ == "__main__":
     obj = CovExp()
-    print(obj.cal_vol())
-    obj.prop_soild(obj.base)
-    obj.ShowDisplay()
+    obj.show_axs_pln()
+    obj.show()
