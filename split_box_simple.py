@@ -1,6 +1,6 @@
 import numpy as np
 
-from base import BoxSplit
+from src.base import BoxSplit
 
 if __name__ == "__main__":
     obj = BoxSplit()

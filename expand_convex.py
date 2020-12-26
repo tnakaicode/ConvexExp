@@ -50,7 +50,7 @@ from OCCUtils.Construct import make_box
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 
-from base import plotocc
+from src.base import plotocc
 
 
 class CovExp (plotocc):

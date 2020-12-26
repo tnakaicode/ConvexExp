@@ -5,7 +5,7 @@ import os
 import time
 
 sys.path.append(os.path.join("./"))
-from base import plot2d, plotocc
+from src.base import plot2d, plotocc
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir

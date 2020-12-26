@@ -1,7 +1,7 @@
 import numpy as np
 import random
 
-from base import plotocc
+from src.base import plotocc
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pln

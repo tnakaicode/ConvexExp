@@ -9,7 +9,7 @@ import logging
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
 
 sys.path.append(os.path.join("./"))
-from base import plot2d, plotocc
+from src.base import plot2d, plotocc
 
 from OCC.Core.gp import gp_Ax3, gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
