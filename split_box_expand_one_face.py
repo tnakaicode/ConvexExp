@@ -15,12 +15,12 @@ from OCC.Core.BRepGProp import brepgprop_VolumeProperties
 from OCC.Core.BRepGProp import brepgprop_LinearProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
-from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
+from OCC.Core.BOPAlgo import BOPAlgo_Splitter
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopExp import TopExp_Explorer
-from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape
-from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face
-from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE
+from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, TopoDS_Iterator
+from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face, topods, topods_Vertex
+from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE, TopAbs_VERTEX
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
 #from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
@@ -33,6 +33,8 @@ from OCCUtils.Construct import vec_to_dir, dir_to_vec
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
+
+from src.base_occ import dispocc
 
 
 def axs1_to_axs3(axs=gp_Ax1()):
@@ -60,68 +62,19 @@ def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
         return np.pi - ref_angle
 
 
-class CovExp (object):
+class CovExp (dispocc):
 
     def __init__(self, file=False, show=False):
+        dispocc.__init__(self, touch=show)
         self.prop = GProp_GProps()
         self.base = make_box(100, 100, 100)
         self.base_vol = self.cal_vol(self.base)
 
-        self.splitter = GEOMAlgo_Splitter()
+        self.splitter = BOPAlgo_Splitter()
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
 
         self.show = show
-
-        if self.show == True:
-            self.display, self.start_display, self.add_menu, self.add_function_to_menu = init_display()
-            from OCC.Display.qtDisplay import qtViewer3d
-            self.app = self.get_app()
-            self.wi = self.app.topLevelWidgets()[0]
-            self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
-            self.on_select()
-
-    def get_app(self):
-        app = QApplication.instance()
-        #app = qApp
-        # checks if QApplication already exists
-        if not app:
-            app = QApplication(sys.argv)
-        return app
-
-    def on_select(self):
-        self.vi.sig_topods_selected.connect(self._on_select)
-
-    def _on_select(self, shapes):
-        """
-        Parameters
-        ----------
-        shape : TopoDS_Shape
-        """
-        for shape in shapes:
-            self.DumpTop(shape)
-
-    def DumpTop(self, shape, level=0):
-        """
-        Print the details of an object from the top down
-        """
-        brt = BRep_Tool()
-        s = shape.ShapeType()
-        if s == TopAbs_VERTEX:
-            pnt = brt.Pnt(topods_Vertex(shape))
-            dmp = " " * level
-            dmp += "%s - " % shapeTypeString(shape)
-            dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
-            print(dmp)
-        else:
-            dmp = " " * level
-            dmp += shapeTypeString(shape)
-            print(dmp)
-        it = TopoDS_Iterator(shape)
-        while it.More():
-            shp = it.Value()
-            it.Next()
-            self.DumpTop(shp, level + 1)
 
     def ShowDisplay(self):
         colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
@@ -211,7 +164,6 @@ class CovExp (object):
 
             new_face = self.face_rotate(face, line_axs)
             #self.face_tranfer(face, plan.Axis())
-            
 
             plan = self.pln_on_face(face)
             print(face, self.cal_are(face), plan)

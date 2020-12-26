@@ -24,8 +24,6 @@ import sys
 from OCC import VERSION
 from OCC.Display.backend import load_backend, get_qt_modules
 from OCC.Display.OCCViewer import OffscreenRenderer
-from OCC.Display.qtDisplay import qtViewer3d
-QtCore, QtGui, QtWidgets, QtOpenGL = get_qt_modules()
 
 log = logging.getLogger(__name__)
 
@@ -35,11 +33,11 @@ def check_callable(_callable):
         raise AssertionError("The function supplied is not callable")
 
 
-def init_display(backend_str=None,
-                 size=(1024, 768),
-                 display_triedron=True,
-                 background_gradient_color1=[206, 215, 222],
-                 background_gradient_color2=[128, 128, 128]):
+def init_qtdisplay(backend_str=None,
+                   size=(1024, 768),
+                   display_triedron=True,
+                   background_gradient_color1=[206, 215, 222],
+                   background_gradient_color2=[128, 128, 128]):
     """ This function loads and initialize a GUI using either wx, pyq4, pyqt5 or pyside.
     If ever the environment variable PYTHONOCC_OFFSCREEN_RENDERER, then the GUI is simply
     ignored and an offscreen renderer is returned.
@@ -78,7 +76,10 @@ def init_display(backend_str=None,
         return offscreen_renderer, do_nothing, do_nothing, call_function
     used_backend = load_backend(backend_str)
     log.info("GUI backend set to: %s", used_backend)
+
     # Qt based simple GUI
+    from OCC.Display.qtDisplay import qtViewer3d
+    QtCore, QtGui, QtWidgets, QtOpenGL = get_qt_modules()
 
     class MainWindow(QtWidgets.QMainWindow):
 
@@ -160,25 +161,8 @@ def init_display(backend_str=None,
         display.set_bg_gradient_color(
             background_gradient_color1, background_gradient_color2)
 
-    return display, start_display, add_menu, add_function_to_menu
+    return display, start_display, add_menu, add_function_to_menu, win
 
 
 if __name__ == '__main__':
-    display, start_display, add_menu, add_function_to_menu = init_display(
-        "qt-pyqt5")
-    from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere, BRepPrimAPI_MakeBox
-
-    def sphere(event=None):
-        display.DisplayShape(BRepPrimAPI_MakeSphere(100).Shape(), update=True)
-
-    def cube(event=None):
-        display.DisplayShape(BRepPrimAPI_MakeBox(1, 1, 1).Shape(), update=True)
-
-    def quit(event=None):
-        sys.exit()
-
-    add_menu('primitives')
-    add_function_to_menu('primitives', sphere)
-    add_function_to_menu('primitives', cube)
-    add_function_to_menu('primitives', quit)
-    start_display()
+    print()
