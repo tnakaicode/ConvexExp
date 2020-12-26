@@ -74,19 +74,13 @@ class CovExp (dispocc):
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
 
-    def ShowDisplay(self):
-        colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
+    def init_base(self, shape):
+        self.base = shape
+        self.base_vol = self.cal_vol(self.base)
 
-        num = 0
-        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
-        while sol_exp.More():
-            num += 1
-            self.display.DisplayShape(
-                sol_exp.Current(), color=colors[num % len(colors)], transparency=0.5)
-            sol_exp.Next()
-
-        self.display.FitAll()
-        self.start_display()
+        self.splitter = BOPAlgo_Splitter()
+        self.splitter.AddArgument(self.base)
+        print(self.cal_vol(self.base))
 
     def fileout(self, dirname="./shp/"):
         num = 0
@@ -239,6 +233,18 @@ class CovExp (dispocc):
         while sol_exp.More():
             self.prop_soild(sol_exp.Current())
             sol_exp.Next()
+
+    def show_split_solid(self):
+        colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
+
+        num = 0
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        while sol_exp.More():
+            num += 1
+            self.display.DisplayShape(
+                sol_exp.Current(), color=colors[num % len(colors)], transparency=0.5)
+            sol_exp.Next()
+        self.show()
 
 
 if __name__ == "__main__":

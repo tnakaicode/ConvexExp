@@ -5,6 +5,8 @@ import logging
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
 logging.getLogger('parso').setLevel(logging.ERROR)
 
+from src.convex import CovExp
+
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
@@ -18,8 +20,6 @@ from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCCUtils.Construct import make_box
 from OCCUtils.Topology import shapeTypeString, dumpTopology
 from OCCUtils.Construct import vec_to_dir, dir_to_vec
-
-from src.convex import CovExp
 
 
 if __name__ == "__main__":
