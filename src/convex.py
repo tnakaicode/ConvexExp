@@ -1,5 +1,5 @@
 import numpy as np
-import sys
+import sys, os
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
@@ -34,6 +34,7 @@ from OCCUtils.Construct import vec_to_dir, dir_to_vec
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 
+sys.path.append(os.path.join("../"))
 from src.base_occ import dispocc
 
 
@@ -138,10 +139,8 @@ class CovExp (dispocc):
 
     def face_expand(self, face=TopoDS_Face()):
         print(face)
-
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
-
         while find_edge.More():
             edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
@@ -256,12 +255,10 @@ if __name__ == "__main__":
     obj.prop_soild(sol_exp.Current())
 
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-
-    obj.display.FitAll()
-    obj.start_display()
+    obj.show()
 
     # print(obj.cal_vol())
     # obj.prop_soild(obj.base)
 
-    # obj.fileout()
+    #sobj.fileout()
     # obj.ShowDisplay()

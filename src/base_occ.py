@@ -24,8 +24,9 @@ from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 # pip install PyQt5
 
-from src.base import SetDir, create_tempdir, create_tempnum
-from src.base import gen_ellipsoid, pnt_from_axs, pnt_trf_vec, set_loc, set_trf
+sys.path.append(os.path.join("./"))
+from src.base import SetDir
+from src.base import gen_ellipsoid, pnt_from_axs, pnt_trf_vec, set_loc, set_trf, create_tempdir, create_tempnum
 from src.OCCGui import init_qtdisplay
 
 from OCC.Display.SimpleGui import init_display
@@ -60,7 +61,10 @@ from OCC.Core.GeomFill import GeomFill_BoundWithSurf
 from OCC.Core.GeomFill import GeomFill_BSplineCurves
 from OCC.Core.GeomFill import GeomFill_StretchStyle, GeomFill_CoonsStyle, GeomFill_CurvedStyle
 from OCC.Core.AIS import AIS_Manipulator
+from OCC.Core.BRepTools import breptools_Write
 from OCC.Extend.DataExchange import write_step_file, read_step_file
+from OCC.Extend.DataExchange import write_iges_file, read_iges_file
+from OCC.Extend.DataExchange import write_stl_file, read_stl_file
 from OCCUtils.Topology import Topo
 from OCCUtils.Topology import shapeTypeString, dumpTopology
 from OCCUtils.Construct import make_box, make_line, make_wire, make_edge
@@ -98,11 +102,11 @@ class OCCViewer (object):
         ----------
         shape : TopoDS_Shape
         """
-        print()
         for shape in shapes:
+            print()
+            print(shape.Location().Transformation())
             self.selected_shape.append(shape)
             self.DumpTop(shape)
-        print()
 
     def DumpTop(self, shape, level=0):
         """
@@ -178,14 +182,14 @@ class dispocc (SetDir, OCCViewer):
         self.display.DisplayShape(shape, transparency=trans, color="BLUE")
         return shape
 
-    def show_axs_pln(self, axs=gp_Ax3(), scale=100):
+    def show_axs_pln(self, axs=gp_Ax3(), scale=100, name=None):
         pnt = axs.Location()
         dx = axs.XDirection()
         dy = axs.YDirection()
         dz = axs.Direction()
         vx = dir_to_vec(dx).Scaled(1 * scale)
-        vy = dir_to_vec(dy).Scaled(2 * scale)
-        vz = dir_to_vec(dz).Scaled(3 * scale)
+        vy = dir_to_vec(dy).Scaled(1 * scale)
+        vz = dir_to_vec(dz).Scaled(1 * scale)
 
         pnt_x = pnt_trf_vec(pnt, vx)
         pnt_y = pnt_trf_vec(pnt, vy)
@@ -194,6 +198,8 @@ class dispocc (SetDir, OCCViewer):
         self.display.DisplayShape(make_line(pnt, pnt_x), color="RED")
         self.display.DisplayShape(make_line(pnt, pnt_y), color="GREEN")
         self.display.DisplayShape(make_line(pnt, pnt_z), color="BLUE")
+        if name != None:
+            self.display.DisplayMessage(axs.Location(), name)
 
     def show_plane(self, axs=gp_Ax3(), scale=100):
         pnt = axs.Location()
@@ -287,6 +293,39 @@ class dispocc (SetDir, OCCViewer):
                 face, skin, 1.0E-5, BRepOffset_Skin, False, True, GeomAbs_Arc, True, True)
             return solid.Shape()
 
+    def make_Wire_pts(self, dat=[], axs=gp_Ax3()):
+        num = dat.shape
+        pts = []
+        if num[1] == 2:
+            for p in dat:
+                pts.append(gp_Pnt(p[0], p[1], 0))
+        elif num[1] == 3:
+            for p in dat:
+                pts.append(gp_Pnt(p[0], p[1], p[2]))
+        else:
+            for p in dat:
+                pts.append(gp_Pnt(p[0], p[1], p[2]))
+        pts = np.array(pts)
+        #cov = ConvexHull(pts, qhull_options='QJ')
+
+        #pts_ord = []
+        # print(cov)
+        # print(cov.simplices)
+        # print(cov.vertices)
+        # for idx in cov.vertices:
+        #    print(idx, pnt[idx])
+        #    pts_ord.append(gp_Pnt(*pnt[idx]))
+
+        #poly = make_polygon(pts_ord)
+        poly = make_polygon(pts)
+        poly.Location(set_loc(gp_Ax3(), axs))
+        #n_sided = BRepFill_Filling()
+        # for e in Topo(poly).edges():
+        #    n_sided.Add(e, GeomAbs_C0)
+        # n_sided.Build()
+        #face = n_sided.Face()
+        return poly
+
     def make_FaceByOrder(self, pts=[]):
         pnt = []
         for p in pts:
@@ -325,11 +364,11 @@ class dispocc (SetDir, OCCViewer):
         self.add_function("File", self.export_cap)
         if self.touch == True:
             self.add_function("File", self.export_stp_selected)
+            self.add_function("File", self.export_stl_selected)
+            self.add_function("File", self.export_igs_selected)
+            self.add_function("File", self.export_brep_selected)
             self.add_function("File", self.clear_selected)
-        self.add_function("File", self.exit)
-
-    def exit(self, event=None):
-        sys.exit()
+        self.add_function("File", self.exit_app)
 
     def export_cap(self):
         pngname = create_tempnum(self.rootname, self.tmpdir, ".png")
@@ -348,6 +387,39 @@ class dispocc (SetDir, OCCViewer):
                 print(shp)
                 builder.Add(compound, shp)
             self.export_stp(compound)
+
+    def export_stl_selected(self):
+        if self.touch == True:
+            builder = BRep_Builder()
+            compound = TopoDS_Compound()
+            builder.MakeCompound(compound)
+            for shp in self.selected_shape:
+                print(shp)
+                builder.Add(compound, shp)
+            stlname = create_tempnum(self.rootname, self.tmpdir, ".stl")
+            write_stl_file(compound, stlname)
+
+    def export_igs_selected(self):
+        if self.touch == True:
+            builder = BRep_Builder()
+            compound = TopoDS_Compound()
+            builder.MakeCompound(compound)
+            for shp in self.selected_shape:
+                print(shp)
+                builder.Add(compound, shp)
+            igsname = create_tempnum(self.rootname, self.tmpdir, ".stl")
+            write_iges_file(compound, igsname)
+
+    def export_brep_selected(self):
+        if self.touch == True:
+            builder = BRep_Builder()
+            compound = TopoDS_Compound()
+            builder.MakeCompound(compound)
+            for shp in self.selected_shape:
+                print(shp)
+                builder.Add(compound, shp)
+            brepname = create_tempnum(self.rootname, self.tmpdir, ".brep")
+            breptools_Write(compound, brepname)
 
     def show(self):
         self.display.FitAll()
