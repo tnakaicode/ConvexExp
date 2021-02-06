@@ -3,11 +3,11 @@ import sys
 import os
 
 from OCC.Display.SimpleGui import init_display
-from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
+from OCC.Core.gp import gp_Circ, gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_Pln, gp_Lin
 from OCC.Core.gp import gp_Trsf
-from OCC.Core.TopLoc import TopLoc_Location
+from OCC.Core.Geom import Geom_Circle, Geom_TrimmedCurve
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCC.Core.BRepLProp import BRepLProp_CLProps
@@ -18,6 +18,7 @@ from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_Splitter
 from OCC.Core.LocOpe import LocOpe_FindEdges
+from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.TopoDS import TopoDS_Compound, TopoDS_Shape, TopoDS_Iterator
 from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face, topods, topods_Vertex
@@ -143,33 +144,36 @@ class CovExp (dispocc):
         face_u = (face_umax + face_umin) / 2
         face_v = (face_vmax + face_vmin) / 2
         face_pnt = face_adaptor.Value(face_u, face_v)
-
+        face_pln.SetLocation(face_pnt)
         return face_pln
 
     def face_expand(self, face=TopoDS_Face()):
-        print(face)
+        plan = self.pln_on_face(face)
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
         edge_n = 0
         while find_edge.More():
             edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
-            plan = self.pln_on_face(face)
 
             e_curve, u0, u1 = BRep_Tool.Curve(edge)
             p = e_curve.Value((u0 + u1) / 2)
-            i = edge_n % len(self.colors)
+            i = (edge_n + self.tmp_face_n) % len(self.colors)
             self.display.DisplayShape(edge, color=self.colors[i])
-            self.display.DisplayMessage(p, "Edge-{:d}".format(edge_n))
+            self.display.DisplayMessage(
+                p, "Face{:d}-Edge{:d}".format(self.tmp_face_n, edge_n))
 
             plan_axs = plan.Position()
             line_axs = line.Position()
+            line_axs.SetLocation(p)
 
+            print()
+            print("Face: {:d}, Edge: {:d}".format(self.tmp_face_n, edge_n))
             print(self.tmp_axis.Axis())
             print(plan.Position().Axis())
             #print(self.cal_len(edge), self.cal_are(face))
 
-            new_face = self.face_rotate(face, line_axs)
+            self.face_rotate(face, line_axs)
             #self.face_tranfer(face, plan.Axis())
 
             plan = self.pln_on_face(face)
@@ -182,13 +186,31 @@ class CovExp (dispocc):
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1()):
         plan = self.pln_on_face(face)
         plan_axs = plan.Position()
+        self.display.DisplayShape(plan_axs.Location())
+
+        v0 = dir_to_vec(self.tmp_axis.Direction())
+        v1 = dir_to_vec(plan_axs.Direction())
+        print(v0.Dot(v1))
+
+        lin_vec = gp_Vec(axs.Location(), plan_axs.Location())
+        edg_circl = Geom_Circle(gp_Circ(
+            gp_Ax2(axs.Location(),
+                   axs.Direction(),
+                   vec_to_dir(lin_vec)), 5))
+        rim_u0, rim_u1 = edg_circl.FirstParameter(), edg_circl.LastParameter()
+        rim_p0 = edg_circl.Value(rim_u0)
 
         pln_angle = self.tmp_axis.Angle(plan_axs)
         ref_angle = self.tmp_axis.Direction().AngleWithRef(
             plan_axs.Direction(), axs.Direction())
         print(np.rad2deg(pln_angle), np.rad2deg(ref_angle))
 
+        rim_u2 = -ref_angle
+        rim_p2 = edg_circl.Value(rim_u2)
+        rim_angle = Geom_TrimmedCurve(edg_circl, rim_u0, rim_u2)
+
         trf = gp_Trsf()
+        #trf.SetRotation(axs, 2*np.pi - ref_angle)
         if np.abs(ref_angle) >= np.pi / 2:
             trf.SetRotation(axs, -ref_angle)
         elif 0 < ref_angle < np.pi / 2:
@@ -199,35 +221,35 @@ class CovExp (dispocc):
             trf.SetRotation(axs, -ref_angle)
         #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         loc_face = TopLoc_Location(trf)
-        new_face = face.Located(loc_face)
-        # face.Location(loc_face)
-        self.display.DisplayShape(new_face)
-        #self.display.DisplayMessage(axs.Location(), "P1")
+        new_face = face.Moved(loc_face)
+        self.display.DisplayShape(new_face, transparency=0.5)
+        self.display.DisplayShape(rim_angle)
+        self.display.DisplayShape(rim_p0)
+        self.display.DisplayShape(rim_p2)
         return new_face
 
     def face_init(self, face=TopoDS_Face()):
         self.tmp_face = face
         self.tmp_plan = self.pln_on_face(self.tmp_face)
         self.tmp_axis = self.tmp_plan.Position()
-        print(self.tmp_axis)
-
-        if self.show == True:
-            # self.display.DisplayShape(axs_pln(self.tmp_axis))
-            pass
+        self.tmp_face_n = 0
+        self.show_axs_pln(self.tmp_axis, scale=20, name="Fix-Face")
+        self.display.DisplayShape(self.tmp_face, color="RED")
 
     def prop_soild(self, sol=TopoDS_Solid()):
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
-        #print(self.cal_vol(sol), self.base_vol)
+        print()
+        print(sol, self.cal_vol(sol))
         print(sol_top.number_of_faces())
 
         self.face_init(sol_exp.Current())
         sol_exp.Next()
-
         while sol_exp.More():
             face = sol_exp.Current()
             self.face_expand(face)
             sol_exp.Next()
+            self.tmp_face_n += 1
 
         """self.face_init(face)
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
@@ -245,7 +267,6 @@ class CovExp (dispocc):
 
     def show_split_solid(self):
         colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
-
         num = 0
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while sol_exp.More():
@@ -257,13 +278,16 @@ class CovExp (dispocc):
 
 
 if __name__ == "__main__":
-    obj = CovExp(touch=True)
-    obj.split_run(3)
+    obj = CovExp(touch=False)
+    obj.split_run(4)
     # obj.prop_solids()
 
     sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
-    obj.prop_soild(sol_exp.Current())
     print(sol_exp.Depth())
+    sol_exp.Next()
+    sol_exp.Next()
+    sol_exp.Next()
+    obj.prop_soild(sol_exp.Current())
 
     obj.display.DisplayShape(obj.splitter.Shape(),
                              color="BLUE", transparency=0.9)
