@@ -1,5 +1,6 @@
 import numpy as np
-import sys, os
+import sys
+import os
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
@@ -121,6 +122,14 @@ class CovExp (dispocc):
         edge_line = edge_adaptor.Line()
         return edge_line
 
+    def face_tranfer(self, face=TopoDS_Face(), axs=gp_Ax1()):
+        axs_3 = gp_Ax3(axs.Location(), axs.Direction())
+        trf = gp_Trsf()
+        trf.SetTransformation(axs_3, self.tmp_axs3)
+        loc_face = TopLoc_Location(trf)
+        face.Location(loc_face)
+        return face
+
     def pln_on_face(self, face=TopoDS_Face()):
         face_adaptor = BRepAdaptor_Surface(face)
         face_trf = face_adaptor.Trsf()
@@ -141,10 +150,17 @@ class CovExp (dispocc):
         print(face)
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
+        edge_n = 0
         while find_edge.More():
             edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
             plan = self.pln_on_face(face)
+
+            e_curve, u0, u1 = BRep_Tool.Curve(edge)
+            p = e_curve.Value((u0 + u1) / 2)
+            i = edge_n % len(self.colors)
+            self.display.DisplayShape(edge, color=self.colors[i])
+            self.display.DisplayMessage(p, "Edge-{:d}".format(edge_n))
 
             plan_axs = plan.Position()
             line_axs = line.Position()
@@ -161,13 +177,7 @@ class CovExp (dispocc):
             print(plan, plan.Axis())
             find_edge.Next()
 
-    def face_tranfer(self, face=TopoDS_Face(), axs=gp_Ax1()):
-        axs_3 = gp_Ax3(axs.Location(), axs.Direction())
-        trf = gp_Trsf()
-        trf.SetTransformation(axs_3, self.tmp_axs3)
-        loc_face = TopLoc_Location(trf)
-        face.Location(loc_face)
-        return face
+            edge_n += 1
 
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1()):
         plan = self.pln_on_face(face)
@@ -192,7 +202,7 @@ class CovExp (dispocc):
         new_face = face.Located(loc_face)
         # face.Location(loc_face)
         self.display.DisplayShape(new_face)
-        self.display.DisplayMessage(axs.Location(), "P1")
+        #self.display.DisplayMessage(axs.Location(), "P1")
         return new_face
 
     def face_init(self, face=TopoDS_Face()):
@@ -248,17 +258,20 @@ class CovExp (dispocc):
 
 if __name__ == "__main__":
     obj = CovExp(touch=True)
-    obj.split_run(2)
+    obj.split_run(3)
     # obj.prop_solids()
 
     sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
     obj.prop_soild(sol_exp.Current())
+    print(sol_exp.Depth())
 
+    obj.display.DisplayShape(obj.splitter.Shape(),
+                             color="BLUE", transparency=0.9)
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
     obj.show()
 
     # print(obj.cal_vol())
     # obj.prop_soild(obj.base)
 
-    #sobj.fileout()
+    # sobj.fileout()
     # obj.ShowDisplay()

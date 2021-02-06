@@ -24,7 +24,7 @@ from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
 # pip install PyQt5
 
-sys.path.append(os.path.join("./"))
+sys.path.append(os.path.join("../"))
 from src.base import SetDir
 from src.base import gen_ellipsoid, pnt_from_axs, pnt_trf_vec, set_loc, set_trf, create_tempdir, create_tempnum
 from src.OCCGui import init_qtdisplay
@@ -136,6 +136,9 @@ class dispocc (SetDir, OCCViewer):
     def __init__(self, touch=False):
         SetDir.__init__(self)
         self.display, self.start_display, self.add_menu, self.add_function, self.wi = init_qtdisplay()
+
+        # type: Graphic3d_Camera
+        self.camera = self.display.View.Camera()
         self.base_axs = gp_Ax3()
         self.touch = touch
         if touch == True:
@@ -374,6 +377,13 @@ class dispocc (SetDir, OCCViewer):
         pngname = create_tempnum(self.rootname, self.tmpdir, ".png")
         self.display.View.Dump(pngname)
 
+    def export_cap_name(self, name=None):
+        if name == None:
+            pngname = create_tempnum(self.rootname, self.tmpdir, ".png")
+        else:
+            pngname = name
+        self.display.View.Dump(pngname)
+
     def export_stp(self, shp):
         stpname = create_tempnum(self.rootname, self.tmpdir, ".stp")
         write_step_file(shp, stpname)
@@ -433,6 +443,19 @@ if __name__ == '__main__':
     obj.display.DisplayShape(make_box(100, 100, 100))
     obj.display.FitAll()
     obj.export_cap()
+
+    obj.camera.SetDirection(gp_Dir(0, 0, 1))
+    obj.camera.SetUp(gp_Dir(0, 1, 0))
+    obj.display.Context.UpdateCurrentViewer()
+    obj.display.FitAll()
+    obj.export_cap()
+
+    obj.camera.SetDirection(gp_Dir(0, 0, -1))
+    obj.camera.SetUp(gp_Dir(0, 1, 0))
+    obj.display.Context.UpdateCurrentViewer()
+    obj.display.FitAll()
+    obj.export_cap()
+    obj.export_cap_name(name=obj.tmpdir + "box.png")
     obj.wi.close()
 
     obj = dispocc(touch=True)
