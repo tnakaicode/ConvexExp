@@ -274,7 +274,7 @@ class CovExp (dispocc):
             self.display.DisplayShape(
                 sol_exp.Current(), color=colors[num % len(colors)], transparency=0.5)
             sol_exp.Next()
-        self.show()
+        self.ShowOCC()
 
 
 if __name__ == "__main__":
@@ -292,7 +292,7 @@ if __name__ == "__main__":
     obj.display.DisplayShape(obj.splitter.Shape(),
                              color="BLUE", transparency=0.9)
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-    obj.show()
+    obj.ShowOCC()
 
     # print(obj.cal_vol())
     # obj.prop_soild(obj.base)

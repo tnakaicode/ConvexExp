@@ -136,7 +136,7 @@ def init_qtdisplay(backend_str=None,
         app = QtWidgets.QApplication(sys.argv)
     win = MainWindow()
     win.resize(size[0] - 1, size[1] - 1)
-    win.show()
+    win.ShowOCC()
     win.centerOnScreen()
     win.canva.InitDriver()
     win.resize(size[0], size[1])

@@ -327,4 +327,4 @@ class CovExp (plotocc):
 if __name__ == "__main__":
     obj = CovExp()
     obj.show_axs_pln()
-    obj.show()
+    obj.ShowOCC()

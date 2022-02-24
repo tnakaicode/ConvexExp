@@ -30,7 +30,7 @@ if __name__ == "__main__":
     sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
     obj.prop_soild(sol_exp.Current())
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-    obj.show()
+    obj.ShowOCC()
 
     # print(obj.cal_vol())
     # obj.prop_soild(obj.base)
