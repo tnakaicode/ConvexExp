@@ -26,6 +26,7 @@ from PyQt5.QtWidgets import QFileDialog
 # pip install PyQt5
 # pip install --upgrade --force-reinstall PyQt5
 
+sys.path.append(os.path.join("../"))
 from src.base import SetDir, plot2d, which, create_tempnum
 from src.base_qtOCC import init_QDisplay
 from src.OCCGui import init_qtdisplay
@@ -81,7 +82,7 @@ from OCC.Core.GeomAbs import GeomAbs_Intersection, GeomAbs_Arc
 from OCC.Core.GeomFill import GeomFill_BoundWithSurf
 from OCC.Core.GeomFill import GeomFill_BSplineCurves
 from OCC.Core.GeomFill import GeomFill_StretchStyle, GeomFill_CoonsStyle, GeomFill_CurvedStyle
-from OCC.Core.AIS import AIS_Manipulator
+from OCC.Core.AIS import AIS_Manipulator, AIS_InteractiveObject
 from OCC.Core.V3d import V3d_SpotLight, V3d_XnegYnegZpos, V3d_XposYposZpos
 from OCC.Core.Graphic3d import Graphic3d_NOM_ALUMINIUM, Graphic3d_NOM_COPPER, Graphic3d_NOM_BRASS
 from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_WHITE, Quantity_NOC_CORAL2, Quantity_NOC_BROWN
@@ -687,7 +688,7 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
 
     def AddManipulator(self):
         self.manip = AIS_Manipulator(self.base_axs.Ax2())
-        ais_shp = self.display.DisplayShape(
+        [ais_shp] = self.display.DisplayShape(
             self.base_axs.Location(),
             update=True
         )
@@ -730,6 +731,7 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
         self.add_function("Select", self.display.SetSelectionModeFace)
         self.add_function("Select", self.SetSelectionModeShape)
         self.add_function("Select", self.display.SetSelectionModeNeutral)
+        self.add_function("Select", self.AddManipulator)
 
     def SelectMesh(self):
         self.add_menu("Mesh")

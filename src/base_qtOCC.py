@@ -103,7 +103,7 @@ class init_QDisplay (MainWindow):
         MainWindow.__init__(self, backend_str)
 
         self.resize(size[0] - 1, size[1] - 1)
-        self.ShowOCC()
+        self.show()
         self.canvas.InitDriver()
         self.resize(size[0], size[1])
         self.canvas.qApp = self.app
