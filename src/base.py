@@ -15,7 +15,7 @@ import subprocess
 from scipy import ndimage
 from scipy.spatial import ConvexHull, Delaunay
 from scipy.optimize import minimize, minimize_scalar, OptimizeResult
-from optparse import OptionParser
+import argparse
 from matplotlib import animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.mplot3d import Axes3D
