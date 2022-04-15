@@ -32,18 +32,16 @@ from src.base_qtOCC import init_QDisplay
 from src.OCCGui import init_qtdisplay
 
 from OCC.Display.SimpleGui import init_display
-from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
+from OCC.Core.gp import gp_Cylinder, gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_XYZ
 from OCC.Core.gp import gp_Lin, gp_Elips, gp_Pln
 from OCC.Core.gp import gp_Mat, gp_GTrsf, gp_Trsf
-from OCC.Core.gp import gp_Cylinder, gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Compound, TopoDS_Face, topods_Face, topods_Solid
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TColgp import TColgp_Array1OfPnt, TColgp_Array2OfPnt
 from OCC.Core.TColgp import TColgp_HArray1OfPnt, TColgp_HArray2OfPnt
 from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_SOLID, TopAbs_VERTEX, TopAbs_SHAPE
-from OCC.Core.TopAbs import TopAbs_VERTEX
 from OCC.Core.TopoDS import TopoDS_Iterator, topods_Vertex
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.BRep import BRep_Tool
@@ -53,8 +51,6 @@ from OCC.Core.BRepFill import BRepFill_Filling
 from OCC.Core.BRepFill import BRepFill_CurveConstraint
 from OCC.Core.BRepTools import breptools_Read
 from OCC.Core.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin, BRepOffset_Interval
-from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere
-from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeWire
 from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_ThruSections, BRepOffsetAPI_MakeOffset, BRepOffsetAPI_MakeEvolved, BRepOffsetAPI_MakePipe, BRepOffsetAPI_MakePipeShell
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere, BRepPrimAPI_MakeBox
 from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_MakeEdge, BRepBuilderAPI_MakeWire
@@ -82,7 +78,7 @@ from OCC.Core.GeomAbs import GeomAbs_Intersection, GeomAbs_Arc
 from OCC.Core.GeomFill import GeomFill_BoundWithSurf
 from OCC.Core.GeomFill import GeomFill_BSplineCurves
 from OCC.Core.GeomFill import GeomFill_StretchStyle, GeomFill_CoonsStyle, GeomFill_CurvedStyle
-from OCC.Core.AIS import AIS_Manipulator, AIS_InteractiveObject
+from OCC.Core.AIS import AIS_Manipulator
 from OCC.Core.V3d import V3d_SpotLight, V3d_XnegYnegZpos, V3d_XposYposZpos
 from OCC.Core.Graphic3d import Graphic3d_NOM_ALUMINIUM, Graphic3d_NOM_COPPER, Graphic3d_NOM_BRASS
 from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_WHITE, Quantity_NOC_CORAL2, Quantity_NOC_BROWN
@@ -688,7 +684,7 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
 
     def AddManipulator(self):
         self.manip = AIS_Manipulator(self.base_axs.Ax2())
-        [ais_shp] = self.display.DisplayShape(
+        ais_shp = self.display.DisplayShape(
             self.base_axs.Location(),
             update=True
         )
@@ -731,7 +727,6 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
         self.add_function("Select", self.display.SetSelectionModeFace)
         self.add_function("Select", self.SetSelectionModeShape)
         self.add_function("Select", self.display.SetSelectionModeNeutral)
-        self.add_function("Select", self.AddManipulator)
 
     def SelectMesh(self):
         self.add_menu("Mesh")
@@ -967,6 +962,7 @@ class dispocc (OCCApp):
 
     def __init__(self, temp=True, disp=True, touch=False):
         OCCApp.__init__(self, temp, disp, touch)
+        self.plot_close()
 
         # self._key_map = {ord('W'): self._display.SetModeWireFrame,
         #                  ord('S'): self._display.SetModeShaded,

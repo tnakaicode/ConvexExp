@@ -93,6 +93,7 @@ class SetDir (object):
         self.root_dir = os.getcwd()
         self.tempname = ""
         self.rootname = ""
+        self.date_text = datetime.date.today().strftime("%Y.%m.%d")
 
         pyfile = sys.argv[0]
         self.filename = os.path.basename(pyfile)

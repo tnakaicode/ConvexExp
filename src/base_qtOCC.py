@@ -20,6 +20,7 @@
 import logging
 import os
 import sys
+import datetime
 from PyQt5 import QtCore, QtGui, QtOpenGL, QtWidgets
 log = logging.getLogger(__name__)
 
@@ -66,6 +67,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # place the window in the center of the screen, at half the
         # screen size
         self.centerOnScreen()
+
+        # show time
+        self.timer = QtCore.QTimer(self)
+        self.timer.timeout.connect(self.time_draw)
+        self.timer.start(500)  # msec
+
+    def time_draw(self):
+        d = datetime.datetime.today()
+        daystr = d.strftime("%Y-%m-%d %H:%M:%S")
+        self.statusBar().showMessage(daystr)
 
     def centerOnScreen(self):
         '''Centers the window on the screen.'''
