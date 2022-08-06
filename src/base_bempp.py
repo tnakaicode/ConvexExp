@@ -5,14 +5,14 @@ import os
 import time
 import subprocess
 import tempfile
-from scipy.spatial import ConvexHull, Delaunay
 import argparse
+from scipy.spatial import ConvexHull, Delaunay
 from linecache import getline, clearcache
 
 import bempp.api
 
-sys.path.append(os.path.join("./"))
-from base import plot2d, plot3d
+sys.path.append(os.path.join("../"))
+from src.base import plot2d, plot3d
 # from base_occ import dispocc
 
 import logging
@@ -110,7 +110,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--dir", dest="dir", default="./")
     parser.add_argument("--pxyz", dest="pxyz",
-                      default=[0.0, 0.0, 0.0], type=float, nargs=3)
+                        default=[0.0, 0.0, 0.0], type=float, nargs=3)
     opt = parser.parse_args()
     print(opt, argvs)
 

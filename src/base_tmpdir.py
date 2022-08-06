@@ -8,19 +8,20 @@ import glob
 import shutil
 import datetime
 import argparse
+from datetime import date, datetime
 
 
-def create_tempdir(name="temp", flag=1):
-    print(datetime.date.today())
-    datenm = "{0:%Y%m%d}".format(datetime.date.today())
-    dirnum = len(glob.glob("./{}_{}*/".format(name, datenm)))
+def create_tempdir(name="temp", flag=1, d="./"):
+    print(date.today(), time.ctime())
+    datenm = date.today().strftime("%Y%m%d")
+    dirnum = len(glob.glob(d + "{}_{}*/".format(name, datenm)))
     if flag == -1 or dirnum == 0:
-        tmpdir = "./{}_{}{:03}/".format(name, datenm, dirnum)
+        tmpdir = d + "{}_{}{:03}/".format(name, datenm, dirnum)
         os.makedirs(tmpdir)
         fp = open(tmpdir + "not_ignore.txt", "w")
         fp.close()
     else:
-        tmpdir = "./{}_{}{:03}/".format(name, datenm, dirnum - 1)
+        tmpdir = d + "{}_{}{:03}/".format(name, datenm, dirnum - 1)
     return tmpdir
 
 

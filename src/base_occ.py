@@ -10,8 +10,8 @@ import glob
 import shutil
 import datetime
 import platform
-from scipy.spatial import ConvexHull, Delaunay
 import argparse
+from scipy.spatial import ConvexHull, Delaunay
 from matplotlib import animation
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.mplot3d import Axes3D

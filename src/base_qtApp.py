@@ -78,7 +78,6 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canva = qtBaseViewer(self)
         self.setWindowTitle("Qt")
         self.setCentralWidget(self.canva)
-
         self.layout = QtWidgets.QVBoxLayout(self.canva)
 
         self.menu_bar = self.menuBar()
@@ -109,19 +108,23 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.canva)
 
         self.layout = QHBoxLayout(self.canva)
+        font = self.menu_bar.font()
+        font.setPixelSize(15)
+        self.canva.setFont(font)
 
     def time_draw(self):
         d = datetime.datetime.today()
         daystr = d.strftime("%Y-%m-%d %H:%M:%S")
         self.statusBar().showMessage(daystr)
 
-    def centerOnScreen(self):
+    def centerOnScreen(self, ratio=[5, 2]):
         '''Centers the window on the screen.'''
         resolution = QtWidgets.QApplication.desktop().screenGeometry()
+        x, y = ratio
         self.wx = resolution.width()
         self.wy = resolution.height()
-        self.move(int(self.wx / 5), int(self.wy / 5))
-        self.resize(int(self.wx / 2), int(self.wy / 2))
+        self.move(int(self.wx / x), int(self.wy / x))
+        self.resize(int(self.wx / y), int(self.wy / y))
 
     def add_menu(self, menu_name):
         _menu = self.menu_bar.addMenu("&" + menu_name)
