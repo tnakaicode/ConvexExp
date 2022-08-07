@@ -155,17 +155,30 @@ class CovExp (dispocc):
         while find_edge.More():
             edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
-
+            
             e_curve, u0, u1 = BRep_Tool.Curve(edge)
             p = e_curve.Value((u0 + u1) / 2)
             i = (edge_n + self.tmp_face_n) % len(self.colors)
+            v = gp_Vec(e_curve.Value(u0), e_curve.Value(u1))
+            v.Normalize()
+            vz = gp_Vec(0,0,1)
+            p0 = gp_Pnt(0,0,1)
+            e_curve.D1((u0+u1)/2, p0, vz)
+            vx = gp_Vec(self.tmp_axis.Location(), p)
+            vy = gp_Vec(self.tmp_axis.Direction())
+            vx.Normalize()
+            vy.Normalize()
+            vz = vx.Crossed(vy)
+            txt = f"Face{self.tmp_face_n}-Edge{edge_n}"
             self.display.DisplayShape(edge, color=self.colors[i])
-            self.display.DisplayMessage(
-                p, "Face{:d}-Edge{:d}".format(self.tmp_face_n, edge_n))
+            self.display.DisplayMessage(p, txt)
+            self.display.DisplayVector(vz.Scaled(10), p)
 
             plan_axs = plan.Position()
             line_axs = line.Position()
             line_axs.SetLocation(p)
+            line_vec = gp_Vec(line_axs.Direction())
+            self.display.DisplayVector(line_vec.Scaled(5), p)
 
             print()
             print("Face: {:d}, Edge: {:d}".format(self.tmp_face_n, edge_n))
