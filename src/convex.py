@@ -15,7 +15,7 @@ from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
 from OCC.Core.BRepGProp import brepgprop_VolumeProperties
 from OCC.Core.BRepGProp import brepgprop_LinearProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
-from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
+#from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_Splitter
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopLoc import TopLoc_Location

@@ -4,6 +4,7 @@ import matplotlib.tri as tri
 import scipy as sp
 import pandas as pd
 import sys
+import traceback
 import pickle
 import json
 import time
@@ -13,17 +14,31 @@ import shutil
 import platform
 import subprocess
 import argparse
+from linecache import getline, updatecache
 from datetime import date, datetime
 from scipy import ndimage
 from scipy.spatial import ConvexHull, Delaunay
 from scipy.optimize import minimize, minimize_scalar, OptimizeResult
 from matplotlib import animation
+from matplotlib.collections import LineCollection
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 from mpl_toolkits.mplot3d import Axes3D
 
 import logging
 logging.getLogger('matplotlib').setLevel(logging.ERROR)
 logging.getLogger('parso').setLevel(logging.ERROR)
+
+
+def Error_Handling(func):
+    def Try_Function(*args, **kwargs):
+        try:
+            func(*args, **kwargs)
+        except TypeError as e:
+            print(f"{func.__name__} wrong data types. ", e, *args)
+        except Exception as e:
+            print(f"{func.__name__} has any Error. ", e)
+            print(traceback.format_exc())
+    return Try_Function
 
 
 def which(program):
@@ -150,20 +165,20 @@ class SetDir (object):
             print("already exist {}".format(name))
         return name
 
-    def create_dirnum(self, name="./temp", flag=+1):
-        dirnum = len(glob.glob("{}_*/".format(name))) + flag
-        if dirnum < 0:
-            dirnum = 0
-        dirname = name + "_{:03}/".format(dirnum)
-        os.makedirs(dirname, exist_ok=True)
-        fp = open(dirname + "not_ignore.txt", "w")
-        fp.close()
-        print("make {}".format(dirname))
+    def create_dirnum(self, name="temp", flag=+1):
+        if flag == None:
+            dirname = name + "/"
+        else:
+            dirnum = len(glob.glob(f"{name}_*/")) + flag
+            if dirnum < 0:
+                dirnum = 0
+            dirname = f"{name}_{dirnum:03d}/"
+        self.create_dir(dirname)
         return dirname
 
-    def add_tempdir(self, dirname="./", name="temp", flag=1):
+    def add_tempdir(self, dirname="./", name="temp", flag=1, d="./"):
         self.tmpdir = dirname
-        self.tmpdir = create_tempdir(self.tmpdir + name, flag)
+        self.tmpdir = create_tempdir(self.tmpdir + name, flag, d)
         self.tempname = self.tmpdir + self.rootname
         print(self.tmpdir)
 
@@ -200,6 +215,22 @@ class SetDir (object):
             subprocess.check_call(['xdg-open', abspath])
         else:
             subprocess.run('explorer.exe {}'.format(abspath))
+
+    def create_numfile(self):
+        if os.path.exists(self.tmpdir + "num.txt"):
+            updatecache(self.tmpdir + "num.txt")
+            num = int(getline(self.tmpdir + "num.txt", 1).split()[0]) + 1000
+        else:
+            num = 1000
+        fp = open(self.tmpdir + "num.txt", "w")
+        fp.write(f"{num:d}")
+        fp.close()
+        return num
+
+    def add_text_tmpfile(self, filename, text=""):
+        fp = open(self.tmpdir + filename, "a")
+        fp.write(text)
+        fp.close()
 
     def open_tempdir(self):
         self.open_filemanager(self.tmpdir)
@@ -381,6 +412,12 @@ class plot2d (PlotBase):
         make_patch_spines_invisible(axt)
         axt.spines[side].set_visible(True)
         return axt
+
+    def plot_2dgrid(self, x, y, **kwargs):
+        segs1 = np.stack((x, y), axis=2)
+        segs2 = segs1.transpose(1, 0, 2)
+        self.axs.add_collection(LineCollection(segs1, **kwargs))
+        self.axs.add_collection(LineCollection(segs2, **kwargs))
 
     def div_axs(self):
         self.div = make_axes_locatable(self.axs)

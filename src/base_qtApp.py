@@ -4,10 +4,22 @@ import datetime
 import csv
 from linecache import getline, clearcache
 from PyQt5 import QtCore, QtGui, QtOpenGL, QtWidgets
-from PyQt5.QtCore import QTimer, QObject, QStringListModel
+from PyQt5.QtCore import QTimer, QObject, QStringListModel, QSettings
 from PyQt5.QtWidgets import QMenu, QAction, qApp, QFileDialog, QHBoxLayout, QVBoxLayout
 from PyQt5.QtWidgets import QTableWidget, QTableWidgetItem, QPushButton
 from PyQt5.QtWidgets import QComboBox
+
+
+def create_dir(name="temp_setting"):
+    os.makedirs(name, exist_ok=True)
+    if os.path.isdir(name):
+        os.makedirs(name, exist_ok=True)
+        fp = open(name + "not_ignore.txt", "w")
+        fp.close()
+        print("make {}".format(name))
+    else:
+        print("already exist {}".format(name))
+    return name
 
 
 def check_callable(_callable):
@@ -75,18 +87,16 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, *args):
         QtWidgets.QMainWindow.__init__(self, *args)
-        self.canva = qtBaseViewer(self)
-        self.setWindowTitle("Qt")
-        self.setCentralWidget(self.canva)
-        self.layout = QtWidgets.QVBoxLayout(self.canva)
+        self.set_canvas(qtBaseViewer(self), "Qt")
 
         self.menu_bar = self.menuBar()
         self._menus = {}
         self._menu_methods = {}
 
-        # place the window in the center of the screen, at half the
-        # screen size
+        # place the window in the center of the screen,
+        # at half the screen size
         self.centerOnScreen()
+        self.setting = None
 
         self.openAct = QAction("&Open...", self, shortcut="Ctrl+O",
                                triggered=self.open)
@@ -108,9 +118,24 @@ class MainWindow(QtWidgets.QMainWindow):
         self.setCentralWidget(self.canva)
 
         self.layout = QHBoxLayout(self.canva)
-        font = self.menu_bar.font()
-        font.setPixelSize(15)
-        self.canva.setFont(font)
+
+    def set_settingfile(self, filename):
+        self.setting = QSettings(filename, QSettings.IniFormat)
+        self.setting.setFallbacksEnabled(False)
+        self.move(self.setting.value("pos", self.pos()))
+        self.resize(self.setting.value("size", self.size()))
+        font = self.font()
+        font.setPointSize(self.setting.value("font", 9, int))
+        self.setFont(font)
+
+    def get_settigfile(self):
+        options = QFileDialog.Options()
+        # fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.currentPath())
+        fileName, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', "./temp_setting/",
+                                                  'Ini (*.ini)', options=options)
+        print(fileName)
+        if fileName != "":
+            self.set_settingfile(fileName)
 
     def time_draw(self):
         d = datetime.datetime.today()
@@ -166,9 +191,16 @@ class MainWindow(QtWidgets.QMainWindow):
         # fileName = QFileDialog.getOpenFileName(self, "Open File", QDir.currentPath())
         fileName, _ = QFileDialog.getOpenFileName(self, 'QFileDialog.getOpenFileName()', '',
                                                   'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
-        # fileName, _ = QFileDialog.getSaveFileName(self, 'QFileDialog.getOpenFileName()', '',
-        #                                          'Images (*.png *.jpeg *.jpg *.bmp *.gif)', options=options)
         print(fileName)
+
+    def closeEvent(self, e):
+        if self.setting != None:
+            # Write window size and position to config file
+            self.setting.setValue("size", self.size())
+            self.setting.setValue("pos", self.pos())
+            self.setting.setValue("font", self.font().pointSize())
+
+        e.accept()
 
 
 if __name__ == '__main__':

@@ -67,11 +67,26 @@ class MainWindow(QtWidgets.QMainWindow):
         # place the window in the center of the screen, at half the
         # screen size
         self.centerOnScreen()
+        self.setting = None
 
         # show time
         self.timer = QtCore.QTimer(self)
         self.timer.timeout.connect(self.time_draw)
         self.timer.start(500)  # msec
+
+    def set_settingfile(self):
+        filename = os.path.dirname(__file__) + "/temp_setting/qtOCC.ini"
+        #filename = os.path.abspath(filename)
+        #filename = "qtOCC.ini"
+        print(filename)
+        self.setting = QtCore.QSettings(
+            filename, QtCore.QSettings.IniFormat, parent=self)
+        self.setting.setFallbacksEnabled(False)
+        self.move(self.setting.value("pos", self.pos()))
+        self.resize(self.setting.value("size", self.size()))
+        font = self.font()
+        font.setPointSize(self.setting.value("font", 9, int))
+        self.setFont(font)
 
     def time_draw(self):
         d = datetime.datetime.today()
@@ -102,6 +117,16 @@ class MainWindow(QtWidgets.QMainWindow):
         except KeyError:
             raise ValueError('the menu item %s does not exist' % menu_name)
 
+    def closeEvent(self, e):
+        print(e)
+        if self.setting != None:
+            # Write window size and position to config file
+            self.setting.setValue("size", self.size())
+            self.setting.setValue("pos", self.pos())
+            self.setting.setValue("font", self.font().pointSize())
+
+        e.accept()
+
 
 class init_QDisplay (MainWindow):
 
@@ -115,8 +140,11 @@ class init_QDisplay (MainWindow):
 
         self.resize(size[0] - 1, size[1] - 1)
         self.show()
+        print(self.canvas.winId(), int(self.canvas.winId()),
+              type(int(self.canvas.winId())))
         self.canvas.InitDriver()
         self.resize(size[0], size[1])
+        self.set_settingfile()
         self.canvas.qApp = self.app
         self.display = self.canvas._display
 
