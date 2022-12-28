@@ -15,7 +15,7 @@ from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
 from OCC.Core.BRepGProp import brepgprop_VolumeProperties
 from OCC.Core.BRepGProp import brepgprop_LinearProperties
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
-#from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
+# from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_Splitter
 from OCC.Core.LocOpe import LocOpe_FindEdges
 from OCC.Core.TopLoc import TopLoc_Location
@@ -25,7 +25,10 @@ from OCC.Core.TopoDS import TopoDS_Edge, TopoDS_Solid, TopoDS_Face, topods, topo
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE, TopAbs_VERTEX
 from OCC.Core.TopTools import TopTools_ListOfShape
 from OCC.Core.GProp import GProp_GProps
-#from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+# from OCC.Core.GEOMAlgo import GEOMAlgo_Splitter
+from OCC.Core.Prs3d import Prs3d_DimensionAspect
+from OCC.Core.PrsDim import PrsDim_AngleDimension
+from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_RED1, Quantity_NOC_BLACK
 from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
@@ -98,6 +101,7 @@ class CovExp (dispocc):
             sol_exp.Next()
 
     def split_run(self, num=5):
+        np.random.seed(11)
         for i in range(num):
             pnt = gp_Pnt(*np.random.rand(3) * 100)
             vec = gp_Vec(*np.random.randn(3))
@@ -135,7 +139,7 @@ class CovExp (dispocc):
         face_adaptor = BRepAdaptor_Surface(face)
         face_trf = face_adaptor.Trsf()
         face_pln = face_adaptor.Plane()
-        #face_dir = face_adaptor.Direction()
+        # face_dir = face_adaptor.Direction()
 
         face_umin = face_adaptor.FirstUParameter()
         face_vmin = face_adaptor.FirstVParameter()
@@ -155,15 +159,15 @@ class CovExp (dispocc):
         while find_edge.More():
             edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
-            
+
             e_curve, u0, u1 = BRep_Tool.Curve(edge)
             p = e_curve.Value((u0 + u1) / 2)
             i = (edge_n + self.tmp_face_n) % len(self.colors)
             v = gp_Vec(e_curve.Value(u0), e_curve.Value(u1))
             v.Normalize()
-            vz = gp_Vec(0,0,1)
-            p0 = gp_Pnt(0,0,1)
-            e_curve.D1((u0+u1)/2, p0, vz)
+            vz = gp_Vec(0, 0, 1)
+            p0 = gp_Pnt(0, 0, 1)
+            e_curve.D1((u0 + u1) / 2, p0, vz)
             vx = gp_Vec(self.tmp_axis.Location(), p)
             vy = gp_Vec(self.tmp_axis.Direction())
             vx.Normalize()
@@ -184,10 +188,10 @@ class CovExp (dispocc):
             print("Face: {:d}, Edge: {:d}".format(self.tmp_face_n, edge_n))
             print(self.tmp_axis.Axis())
             print(plan.Position().Axis())
-            #print(self.cal_len(edge), self.cal_are(face))
+            # print(self.cal_len(edge), self.cal_are(face))
 
             self.face_rotate(face, line_axs)
-            #self.face_tranfer(face, plan.Axis())
+            # self.face_tranfer(face, plan.Axis())
 
             plan = self.pln_on_face(face)
             print(face, self.cal_are(face), plan)
@@ -206,39 +210,51 @@ class CovExp (dispocc):
         print(v0.Dot(v1))
 
         lin_vec = gp_Vec(axs.Location(), plan_axs.Location())
-        edg_circl = Geom_Circle(gp_Circ(
-            gp_Ax2(axs.Location(),
-                   axs.Direction(),
-                   vec_to_dir(lin_vec)), 5))
+        edg_circl = Geom_Circle(gp_Ax2(axs.Location(),
+                                       axs.Direction(),
+                                       vec_to_dir(lin_vec)),
+                                5)
         rim_u0, rim_u1 = edg_circl.FirstParameter(), edg_circl.LastParameter()
         rim_p0 = edg_circl.Value(rim_u0)
 
         pln_angle = self.tmp_axis.Angle(plan_axs)
-        ref_angle = self.tmp_axis.Direction().AngleWithRef(
-            plan_axs.Direction(), axs.Direction())
+        ref_angle = self.tmp_axis.Direction().AngleWithRef(plan_axs.Direction(),
+                                                           axs.Direction())
         print(np.rad2deg(pln_angle), np.rad2deg(ref_angle))
 
         rim_u2 = -ref_angle
         rim_p2 = edg_circl.Value(rim_u2)
         rim_angle = Geom_TrimmedCurve(edg_circl, rim_u0, rim_u2)
-
+        
         trf = gp_Trsf()
-        #trf.SetRotation(axs, 2*np.pi - ref_angle)
-        if np.abs(ref_angle) >= np.pi / 2:
-            trf.SetRotation(axs, -ref_angle)
-        elif 0 < ref_angle < np.pi / 2:
-            trf.SetRotation(axs, np.pi - ref_angle)
-        elif -np.pi / 2 < ref_angle < 0:
-            trf.SetRotation(axs, -ref_angle - np.pi)
-        else:
-            trf.SetRotation(axs, -ref_angle)
-        #trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
+        # trf.SetRotation(axs, 2*np.pi - ref_angle)
+        #if np.abs(ref_angle) >= np.pi / 2:
+        #    trf.SetRotation(axs, -ref_angle)
+        #elif 0 < ref_angle < np.pi / 2:
+        #    trf.SetRotation(axs, np.pi - ref_angle)
+        #elif -np.pi / 2 < ref_angle < 0:
+        #    trf.SetRotation(axs, -ref_angle - np.pi)
+        #else:
+        #    trf.SetRotation(axs, -ref_angle)
+        # trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
+        trf.SetRotation(axs, -ref_angle)
         loc_face = TopLoc_Location(trf)
         new_face = face.Moved(loc_face)
         self.display.DisplayShape(new_face, transparency=0.5)
         self.display.DisplayShape(rim_angle)
         self.display.DisplayShape(rim_p0)
         self.display.DisplayShape(rim_p2)
+        self.display.DisplayMessage(rim_p0, f"rim_p0: {np.rad2deg(rim_u0):.1f}")
+        self.display.DisplayMessage(rim_p2, f"rim_p2: {np.rad2deg(rim_u2):.1f}")
+
+        ag_aspect = Prs3d_DimensionAspect()
+        ag_aspect.SetCommonColor(Quantity_Color(Quantity_NOC_BLACK))
+        ag = PrsDim_AngleDimension(rim_p0,
+                                   axs.Location(),
+                                   rim_p2)
+        ag.SetDimensionAspect(ag_aspect)
+        self.display.Context.Display(ag, True)
+
         return new_face
 
     def face_init(self, face=TopoDS_Face()):

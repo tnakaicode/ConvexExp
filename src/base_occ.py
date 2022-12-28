@@ -29,8 +29,6 @@ from PyQt5.QtWidgets import QFileDialog
 sys.path.append(os.path.join("../"))
 from src.base import SetDir, plot2d, which, create_tempnum
 from src.base_qtOCC import init_QDisplay
-from base_qtOCC import init_QDisplay
-from src.OCCGui import init_qtdisplay
 
 from OCC.Display.SimpleGui import init_display
 from OCC.Core.gp import gp_Cylinder, gp_Pnt, gp_Vec, gp_Dir
