@@ -157,7 +157,8 @@ class CovExp (dispocc):
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
         edge_n = 0
-        while find_edge.More():
+        #while find_edge.More():
+        while edge_n < 1:
             edge = find_edge.EdgeTo()
             line = self.prop_edge(edge)
 
@@ -306,7 +307,9 @@ class CovExp (dispocc):
 
         self.face_init(sol_exp.Current())
         sol_exp.Next()
-        while sol_exp.More():
+        sol_exp.Next()
+        #sol_exp.Next()
+        while self.tmp_face_n < 2:
             face = sol_exp.Current()
             self.face_expand(face)
             sol_exp.Next()
