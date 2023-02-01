@@ -14,6 +14,7 @@ from OCC.Core.BRepLProp import BRepLProp_CLProps
 from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
 from OCC.Core.BRepGProp import brepgprop_VolumeProperties
 from OCC.Core.BRepGProp import brepgprop_LinearProperties
+from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 # from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_Splitter
@@ -200,6 +201,19 @@ class CovExp (dispocc):
 
             edge_n += 1
 
+    def face_fillet(self, face=TopoDS_Face()):
+        plan = self.pln_on_face(face)
+        find_edge = LocOpe_FindEdges(self.tmp_face, face)
+        find_edge.InitIterator()
+        edge_n = 0
+
+        edge = find_edge.EdgeTo()
+        self.display.DisplayShape(edge, color="BLUE1")
+        self.fill.Add(10, edge)
+        self.fill.Build()
+        self.display.DisplayShape(self.fill.Shape(), transparency=0.8)
+        self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
+
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1()):
         plan = self.pln_on_face(face)
         plan_axs = plan.Position()
@@ -225,16 +239,16 @@ class CovExp (dispocc):
         rim_u2 = -ref_angle
         rim_p2 = edg_circl.Value(rim_u2)
         rim_angle = Geom_TrimmedCurve(edg_circl, rim_u0, rim_u2)
-        
+
         trf = gp_Trsf()
         # trf.SetRotation(axs, 2*np.pi - ref_angle)
-        #if np.abs(ref_angle) >= np.pi / 2:
+        # if np.abs(ref_angle) >= np.pi / 2:
         #    trf.SetRotation(axs, -ref_angle)
-        #elif 0 < ref_angle < np.pi / 2:
+        # elif 0 < ref_angle < np.pi / 2:
         #    trf.SetRotation(axs, np.pi - ref_angle)
-        #elif -np.pi / 2 < ref_angle < 0:
+        # elif -np.pi / 2 < ref_angle < 0:
         #    trf.SetRotation(axs, -ref_angle - np.pi)
-        #else:
+        # else:
         #    trf.SetRotation(axs, -ref_angle)
         # trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
         trf.SetRotation(axs, -ref_angle)
@@ -244,8 +258,10 @@ class CovExp (dispocc):
         self.display.DisplayShape(rim_angle)
         self.display.DisplayShape(rim_p0)
         self.display.DisplayShape(rim_p2)
-        self.display.DisplayMessage(rim_p0, f"rim_p0: {np.rad2deg(rim_u0):.1f}")
-        self.display.DisplayMessage(rim_p2, f"rim_p2: {np.rad2deg(rim_u2):.1f}")
+        self.display.DisplayMessage(
+            rim_p0, f"rim_p0: {np.rad2deg(rim_u0):.1f}")
+        self.display.DisplayMessage(
+            rim_p2, f"rim_p2: {np.rad2deg(rim_u2):.1f}")
 
         ag_aspect = Prs3d_DimensionAspect()
         ag_aspect.SetCommonColor(Quantity_Color(Quantity_NOC_BLACK))
@@ -264,6 +280,22 @@ class CovExp (dispocc):
         self.tmp_face_n = 0
         self.show_axs_pln(self.tmp_axis, scale=20, name="Fix-Face")
         self.display.DisplayShape(self.tmp_face, color="RED")
+
+    def prop_fillet(self, sol=TopoDS_Solid()):
+        self.fill = BRepFilletAPI_MakeFillet(sol)
+        sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
+        sol_top = TopologyExplorer(sol)
+        print()
+        print(sol, self.cal_vol(sol))
+        print(sol_top.number_of_faces())
+
+        self.face_init(sol_exp.Current())
+        sol_exp.Next()
+
+        face = sol_exp.Current()
+        self.face_fillet(face)
+        sol_exp.Next()
+        self.tmp_face_n += 1
 
     def prop_soild(self, sol=TopoDS_Solid()):
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)

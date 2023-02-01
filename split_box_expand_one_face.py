@@ -29,6 +29,7 @@ if __name__ == "__main__":
 
     sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
     sol_exp.Next()
+    obj.prop_fillet(sol_exp.Current())
     obj.prop_soild(sol_exp.Current())
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
     obj.ShowOCC()
