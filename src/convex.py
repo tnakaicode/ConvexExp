@@ -154,7 +154,7 @@ class CovExp (dispocc):
 
     def face_fillet(self, face=TopoDS_Face()):
         plan = self.pln_on_face(face)
-        find_edge = LocOpe_FindEdges(self.tmp_face, face)
+        find_edge = LocOpe_FindEdges(self.fix_face, face)
         find_edge.InitIterator()
         edge_n = 0
 
@@ -166,48 +166,46 @@ class CovExp (dispocc):
         self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
 
     def face_expand(self, face=TopoDS_Face()):
-        """Scan for TopDS_Face (self.temp_face) as a reference and TopDS_Edge in common with the TopoDS_Face that constitutes TopDS_Solid.
+        """Scan around fix_face as a reference and TopDS_Edge in common with the TopoDS_Face that constitutes TopDS_Solid.
            If there is a common TopDS_Edge, the face is rotated (self.rotate_face) around the TopDS_Edge.
 
         Args:
             face (_type_, optional): _description_. Defaults to TopoDS_Face().
         """
         plan = self.pln_on_face(face)  # gp_Pln
-        find_edge = LocOpe_FindEdges(self.tmp_face, face)
+        find_edge = LocOpe_FindEdges(self.fix_face, face)
         find_edge.InitIterator()
         edge_n = 0
         while find_edge.More():
-            # while edge_n < 1:
+            i = (edge_n + self.fix_face_n) % len(self.colors)
+            
+            # Common TopoDS_Edge of face and fix_face
             edge = find_edge.EdgeTo()  # TopoDS_Edge
             line = self.prop_edge(edge)  # gp_Lin
 
             e_curve, u0, u1 = BRep_Tool.Curve(edge)
-            p = e_curve.Value((u0 + u1) / 2)
-            i = (edge_n + self.tmp_face_n) % len(self.colors)
-            v = gp_Vec(e_curve.Value(u0), e_curve.Value(u1))
-            v.Normalize()
-            vz = gp_Vec(0, 0, 1)
-            p0 = gp_Pnt(0, 0, 1)
+            vz = gp_Vec(0, 0, 1) # tangent of edge
+            p0 = gp_Pnt(0, 0, 1) # midpoint of edge
             e_curve.D1((u0 + u1) / 2, p0, vz)
-            vx = gp_Vec(self.tmp_axis.Location(), p)
-            vy = gp_Vec(self.tmp_axis.Direction())
+            vx = gp_Vec(self.fix_axis.Location(), p0)
+            vy = gp_Vec(self.fix_axis.Direction())
             vx.Normalize()
             vy.Normalize()
-            vz = vx.Crossed(vy)
-            txt = f"Face{self.tmp_face_n}-Edge{edge_n}"
+            #vz = vx.Crossed(vy)
+            txt = f"Face{self.fix_face_n}-Edge{edge_n}"
             self.display.DisplayShape(edge, color=self.colors[i])
-            self.display.DisplayMessage(p, txt)
-            self.display.DisplayVector(vz.Scaled(10), p)
+            self.display.DisplayMessage(p0, txt)
+            self.display.DisplayVector(vx.Scaled(10), p0)
 
             plan_axs = plan.Position()  # gp_Ax3
             line_axs = line.Position()  # gp_Ax1
-            line_axs.SetLocation(p)
+            line_axs.SetLocation(p0)
             line_vec = gp_Vec(line_axs.Direction())
-            self.display.DisplayVector(line_vec.Scaled(5), p)
+            self.display.DisplayVector(line_vec.Scaled(5), p0)
 
             print()
-            print("Face: {:d}, Edge: {:d}".format(self.tmp_face_n, edge_n))
-            print(self.tmp_axis.Axis())
+            print("Face: {:d}, Edge: {:d}".format(self.fix_face_n, edge_n))
+            print(self.fix_axis.Axis())
             print(plan.Position().Axis())
             print(self.cal_len(edge), self.cal_are(face))
 
@@ -235,7 +233,7 @@ class CovExp (dispocc):
         plan_axs = plan.Position()
         self.display.DisplayShape(plan_axs.Location())
 
-        v0 = dir_to_vec(self.tmp_axis.Direction())
+        v0 = dir_to_vec(self.fix_axis.Direction())
         v1 = dir_to_vec(plan_axs.Direction())
         print(v0.Dot(v1))
 
@@ -246,8 +244,8 @@ class CovExp (dispocc):
         rim_u0, rim_u1 = edg_circl.FirstParameter(), edg_circl.LastParameter()
         rim_p0 = edg_circl.Value(rim_u0)
 
-        pln_angle = self.tmp_axis.Angle(plan_axs)
-        ref_angle = self.tmp_axis.Direction().AngleWithRef(plan_axs.Direction(),
+        pln_angle = self.fix_axis.Angle(plan_axs)
+        ref_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction(),
                                                            axs.Direction())
         print(np.rad2deg(pln_angle), np.rad2deg(ref_angle))
 
@@ -289,12 +287,12 @@ class CovExp (dispocc):
         return new_face
 
     def face_init(self, face=TopoDS_Face()):
-        self.tmp_face = face
-        self.tmp_plan = self.pln_on_face(self.tmp_face)
-        self.tmp_axis = self.tmp_plan.Position()
-        self.tmp_face_n = 0
-        self.show_axs_pln(self.tmp_axis, scale=20, name="Fix-Face")
-        self.display.DisplayShape(self.tmp_face, color="RED")
+        self.fix_face = face
+        self.fix_plan = self.pln_on_face(self.fix_face)
+        self.fix_axis = self.fix_plan.Position()
+        self.fix_face_n = 0
+        self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
+        self.display.DisplayShape(self.fix_face, color="RED")
 
     def prop_fillet(self, sol=TopoDS_Solid()):
         self.fill = BRepFilletAPI_MakeFillet(sol)
@@ -306,11 +304,13 @@ class CovExp (dispocc):
 
         self.face_init(sol_exp.Current())
         sol_exp.Next()
+        sol_exp.Next()
+        sol_exp.Next()
 
         face = sol_exp.Current()
         self.face_fillet(face)
         sol_exp.Next()
-        self.tmp_face_n += 1
+        self.fix_face_n += 1
 
     def prop_soild(self, sol=TopoDS_Solid()):
         """property of Topo_DS_Solid
@@ -333,7 +333,7 @@ class CovExp (dispocc):
             face = sol_exp.Current()
             self.face_expand(face)
             sol_exp.Next()
-            self.tmp_face_n += 1
+            self.fix_face_n += 1
 
     def prop_solids(self):
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
