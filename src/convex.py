@@ -173,53 +173,56 @@ class CovExp (dispocc):
             face (_type_, optional): _description_. Defaults to TopoDS_Face().
         """
         plan = self.pln_on_face(face)  # gp_Pln
+        plan_axs = plan.Position()  # gp_Ax3
         find_edge = LocOpe_FindEdges(self.fix_face, face)
         find_edge.InitIterator()
         edge_n = 0
         while find_edge.More():
             i = (edge_n + self.fix_face_n) % len(self.colors)
-            
+
             # Common TopoDS_Edge of face and fix_face
             edge = find_edge.EdgeTo()  # TopoDS_Edge
             line = self.prop_edge(edge)  # gp_Lin
 
             e_curve, u0, u1 = BRep_Tool.Curve(edge)
-            vz = gp_Vec(0, 0, 1) # tangent of edge
-            p0 = gp_Pnt(0, 0, 1) # midpoint of edge
+            vz = gp_Vec(0, 0, 1)  # tangent of edge
+            p0 = gp_Pnt(0, 0, 1)  # midpoint of edge
             e_curve.D1((u0 + u1) / 2, p0, vz)
-            vx = gp_Vec(self.fix_axis.Location(), p0)
-            vy = gp_Vec(self.fix_axis.Direction())
-            vx.Normalize()
-            vy.Normalize()
-            #vz = vx.Crossed(vy)
+            e_vec = gp_Vec(e_curve.Value(u0), e_curve.Value(u1)).Normalized()
             txt = f"Face{self.fix_face_n}-Edge{edge_n}"
             self.display.DisplayShape(edge, color=self.colors[i])
-            self.display.DisplayMessage(p0, txt)
-            self.display.DisplayVector(vx.Scaled(10), p0)
+            self.display.DisplayMessage(plan.Location(), txt)
 
-            plan_axs = plan.Position()  # gp_Ax3
+            # Axis defined by common edge
             line_axs = line.Position()  # gp_Ax1
             line_axs.SetLocation(p0)
-            line_vec = gp_Vec(line_axs.Direction())
-            self.display.DisplayVector(line_vec.Scaled(5), p0)
+
+            pz = dir_to_vec(plan_axs.Direction())
+            px = gp_Vec(p0, plan_axs.Location()).Normalized()
+            py = gp_Vec(p0, self.fix_axis.Location()).Normalized()
+            vx = pz.Crossed(vz)
+            if px.Dot(vx) < 0:
+                vx.Reverse()
+            line_axs = gp_Ax3(p0,
+                              vec_to_dir(vz),
+                              vec_to_dir(vx))
 
             print()
-            print("Face: {:d}, Edge: {:d}".format(self.fix_face_n, edge_n))
-            print(self.fix_axis.Axis())
-            print(plan.Position().Axis())
-            print(self.cal_len(edge), self.cal_are(face))
+            print(f"Face: {self.fix_face_n}, Edge: {edge_n}")
+            print(edge, self.cal_len(edge))
+            print(face, self.cal_are(face), plan)
+            print("fix face", self.fix_axis.Axis())
+            print("tmp face", plan_axs.Axis())
+            print("Dir", py.Dot(dir_to_vec(line_axs.YDirection())))
 
-            self.face_rotate(face, line_axs)
+            self.face_rotate(face, line_axs, flg=py.Dot(
+                dir_to_vec(line_axs.YDirection())))
             # self.face_tranfer(face, plan.Axis())
 
-            plan = self.pln_on_face(face)
-            print(face, self.cal_are(face), plan)
-            print(plan, plan.Axis())
             find_edge.Next()
-
             edge_n += 1
 
-    def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1()):
+    def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax3(), flg=1):
         """face rotate
 
         Args:
@@ -229,52 +232,39 @@ class CovExp (dispocc):
         Returns:
             _type_: _description_
         """
+        # Axis of rotated face
         plan = self.pln_on_face(face)
         plan_axs = plan.Position()
-        self.display.DisplayShape(plan_axs.Location())
 
-        v0 = dir_to_vec(self.fix_axis.Direction())
-        v1 = dir_to_vec(plan_axs.Direction())
-        print(v0.Dot(v1))
+        rim_axs = axs.Ax2()
+        rim_circl = Geom_Circle(rim_axs, 10)
+        rim_u0, rim_u1 = rim_circl.FirstParameter(), rim_circl.LastParameter()
+        rim_p0 = rim_circl.Value(rim_u0)
 
-        lin_vec = gp_Vec(axs.Location(), plan_axs.Location())
-        edg_circl = Geom_Circle(gp_Ax2(axs.Location(),
-                                       axs.Direction(),
-                                       vec_to_dir(lin_vec)), 10)
-        rim_u0, rim_u1 = edg_circl.FirstParameter(), edg_circl.LastParameter()
-        rim_p0 = edg_circl.Value(rim_u0)
+        pln_angle = self.fix_axis.Direction().Angle(plan_axs.Direction())
+        print("Angle", np.rad2deg(pln_angle))
 
-        pln_angle = self.fix_axis.Angle(plan_axs)
-        ref_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction(),
-                                                           axs.Direction())
-        print(np.rad2deg(pln_angle), np.rad2deg(ref_angle))
-
-        rim_u2 = -ref_angle
-        rim_p2 = edg_circl.Value(rim_u2)
-        rim_angle = Geom_TrimmedCurve(edg_circl, rim_u0, rim_u2)
+        rim_u2 = -pln_angle
+        rim_p2 = rim_circl.Value(rim_u2)
+        rim_angle = Geom_TrimmedCurve(rim_circl, rim_u0, rim_u2)
 
         trf = gp_Trsf()
-        # trf.SetRotation(axs, 2*np.pi - ref_angle)
-        # if np.abs(ref_angle) >= np.pi / 2:
-        #    trf.SetRotation(axs, -ref_angle)
-        # elif 0 < ref_angle < np.pi / 2:
-        #    trf.SetRotation(axs, np.pi - ref_angle)
-        # elif -np.pi / 2 < ref_angle < 0:
-        #    trf.SetRotation(axs, -ref_angle - np.pi)
-        # else:
-        #    trf.SetRotation(axs, -ref_angle)
-        # trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
-        trf.SetRotation(axs, -pln_angle)
+        if flg >= 0:
+            ang = rim_u2
+        else:
+            ang = rim_u2 - np.pi
+        trf.SetRotation(axs.Axis(), ang)
         loc_face = TopLoc_Location(trf)
         new_face = face.Moved(loc_face)
         self.display.DisplayShape(new_face, transparency=0.5)
         self.display.DisplayShape(rim_angle)
         self.display.DisplayShape(rim_p0)
         self.display.DisplayShape(rim_p2)
-        self.display.DisplayMessage(
-            rim_p0, f"rim_p0: {np.rad2deg(rim_u0):.1f}")
-        self.display.DisplayMessage(
-            rim_p2, f"rim_p2: {np.rad2deg(rim_u2):.1f}")
+        self.show_axs_pln(axs, scale=5)
+        self.display.DisplayMessage(rim_p0,
+                                    f"rim_p0: {np.rad2deg(rim_u0):.1f}")
+        self.display.DisplayMessage(rim_p2,
+                                    f"rim_p2: {np.rad2deg(rim_u2):.1f}")
 
         ag_aspect = Prs3d_DimensionAspect()
         ag_aspect.SetCommonColor(Quantity_Color(Quantity_NOC_BLACK))
