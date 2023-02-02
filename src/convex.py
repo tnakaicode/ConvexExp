@@ -152,15 +152,34 @@ class CovExp (dispocc):
         face_pln.SetLocation(face_pnt)
         return face_pln
 
-    def face_expand(self, face=TopoDS_Face()):
+    def face_fillet(self, face=TopoDS_Face()):
         plan = self.pln_on_face(face)
         find_edge = LocOpe_FindEdges(self.tmp_face, face)
         find_edge.InitIterator()
         edge_n = 0
-        #while find_edge.More():
-        while edge_n < 1:
-            edge = find_edge.EdgeTo()
-            line = self.prop_edge(edge)
+
+        edge = find_edge.EdgeTo()
+        self.display.DisplayShape(edge, color="BLUE1")
+        self.fill.Add(10, edge)
+        self.fill.Build()
+        self.display.DisplayShape(self.fill.Shape(), transparency=0.8)
+        self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
+
+    def face_expand(self, face=TopoDS_Face()):
+        """Scan for TopDS_Face (self.temp_face) as a reference and TopDS_Edge in common with the TopoDS_Face that constitutes TopDS_Solid.
+           If there is a common TopDS_Edge, the face is rotated (self.rotate_face) around the TopDS_Edge.
+
+        Args:
+            face (_type_, optional): _description_. Defaults to TopoDS_Face().
+        """
+        plan = self.pln_on_face(face)  # gp_Pln
+        find_edge = LocOpe_FindEdges(self.tmp_face, face)
+        find_edge.InitIterator()
+        edge_n = 0
+        while find_edge.More():
+            # while edge_n < 1:
+            edge = find_edge.EdgeTo()  # TopoDS_Edge
+            line = self.prop_edge(edge)  # gp_Lin
 
             e_curve, u0, u1 = BRep_Tool.Curve(edge)
             p = e_curve.Value((u0 + u1) / 2)
@@ -180,8 +199,8 @@ class CovExp (dispocc):
             self.display.DisplayMessage(p, txt)
             self.display.DisplayVector(vz.Scaled(10), p)
 
-            plan_axs = plan.Position()
-            line_axs = line.Position()
+            plan_axs = plan.Position()  # gp_Ax3
+            line_axs = line.Position()  # gp_Ax1
             line_axs.SetLocation(p)
             line_vec = gp_Vec(line_axs.Direction())
             self.display.DisplayVector(line_vec.Scaled(5), p)
@@ -190,7 +209,7 @@ class CovExp (dispocc):
             print("Face: {:d}, Edge: {:d}".format(self.tmp_face_n, edge_n))
             print(self.tmp_axis.Axis())
             print(plan.Position().Axis())
-            # print(self.cal_len(edge), self.cal_are(face))
+            print(self.cal_len(edge), self.cal_are(face))
 
             self.face_rotate(face, line_axs)
             # self.face_tranfer(face, plan.Axis())
@@ -202,20 +221,16 @@ class CovExp (dispocc):
 
             edge_n += 1
 
-    def face_fillet(self, face=TopoDS_Face()):
-        plan = self.pln_on_face(face)
-        find_edge = LocOpe_FindEdges(self.tmp_face, face)
-        find_edge.InitIterator()
-        edge_n = 0
-
-        edge = find_edge.EdgeTo()
-        self.display.DisplayShape(edge, color="BLUE1")
-        self.fill.Add(10, edge)
-        self.fill.Build()
-        self.display.DisplayShape(self.fill.Shape(), transparency=0.8)
-        self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
-
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax1()):
+        """face rotate
+
+        Args:
+            face (_type_, optional): TopDS_Face with TopDS_Edge in common with the TopDS_Face (self.tmp_face) to be used as a reference
+            axs (_type_, optional): gp_Ax1 defining the common TopDS_Edge of the "face" and the TopDS_Face (self.tmp_face) to be referenced
+
+        Returns:
+            _type_: _description_
+        """
         plan = self.pln_on_face(face)
         plan_axs = plan.Position()
         self.display.DisplayShape(plan_axs.Location())
@@ -227,8 +242,7 @@ class CovExp (dispocc):
         lin_vec = gp_Vec(axs.Location(), plan_axs.Location())
         edg_circl = Geom_Circle(gp_Ax2(axs.Location(),
                                        axs.Direction(),
-                                       vec_to_dir(lin_vec)),
-                                5)
+                                       vec_to_dir(lin_vec)), 10)
         rim_u0, rim_u1 = edg_circl.FirstParameter(), edg_circl.LastParameter()
         rim_p0 = edg_circl.Value(rim_u0)
 
@@ -252,7 +266,7 @@ class CovExp (dispocc):
         # else:
         #    trf.SetRotation(axs, -ref_angle)
         # trf.SetTransformation(axs3.Rotated(axs, angle), axs3)
-        trf.SetRotation(axs, -ref_angle)
+        trf.SetRotation(axs, -pln_angle)
         loc_face = TopLoc_Location(trf)
         new_face = face.Moved(loc_face)
         self.display.DisplayShape(new_face, transparency=0.5)
@@ -299,6 +313,12 @@ class CovExp (dispocc):
         self.tmp_face_n += 1
 
     def prop_soild(self, sol=TopoDS_Solid()):
+        """property of Topo_DS_Solid
+           Determine one TopoDS_Face as the basis for deployment.
+
+        Args:
+            sol (TopoDS_Solid()): Defaults to TopoDS_Solid().
+        """
         sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
         print()
@@ -307,21 +327,13 @@ class CovExp (dispocc):
 
         self.face_init(sol_exp.Current())
         sol_exp.Next()
-        sol_exp.Next()
-        #sol_exp.Next()
-        while self.tmp_face_n < 2:
+        # sol_exp.Next()
+        # sol_exp.Next()
+        while sol_exp.More():
             face = sol_exp.Current()
             self.face_expand(face)
             sol_exp.Next()
             self.tmp_face_n += 1
-
-        """self.face_init(face)
-        sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
-        while sol_exp.More():
-            face = sol_exp.Current()
-            self.face_expand(face)
-            #self.face_init(sol_exp.Current())
-            sol_exp.Next()"""
 
     def prop_solids(self):
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
