@@ -102,7 +102,8 @@ class CovExp (dispocc):
             sol_exp.Next()
 
     def split_run(self, num=5, seed=11):
-        np.random.seed(seed)
+        if seed != None:
+            np.random.seed(seed)
         for i in range(num):
             pnt = gp_Pnt(*np.random.rand(3) * 100)
             vec = gp_Vec(*np.random.randn(3))

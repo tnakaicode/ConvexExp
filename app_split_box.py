@@ -50,16 +50,7 @@ logging.getLogger('matplotlib').setLevel(logging.ERROR)
 class OCCView(CovExp):
 
     def __init__(self, touch=False, file=False):
-        CovExp.__init__(self, touch)
-
-    def view_split(self, num=5, seed=11):
-        self.split_run(num, seed)
-        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
-        sol_exp.Next()
-
-        self.prop_soild(sol_exp.Current())
-        self.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-        self.display.DisplayShape(self.base, transparency=0.8)
+        CovExp.__init__(self, touch=False)
 
 
 class MainWidget(QtWidgets.QWidget, plot2d):
@@ -84,25 +75,31 @@ class MainWidget(QtWidgets.QWidget, plot2d):
 
         # Split Button
         self.splt_butt = QPushButton('Split Box', self)
-        self.splt_butt.setFixedSize(*self.text_size)
-        self.splt_butt.clicked.connect(lambda: self.view.view_split(5, 11))
+        self.splt_butt.clicked.connect(lambda: self.calc_split())
+
+        self.splt_snum = QLineEdit('3', self)
+        self.splt_seed = QLineEdit('11', self)
 
         # Erase Button
         self.eras_butt = QPushButton('Erase All', self)
-        self.eras_butt.setFixedSize(*self.text_size)
         self.eras_butt.clicked.connect(self.display.EraseAll)
 
         # Save Screen Button
         self.scrn_butt = QPushButton('Save Screen', self)
-        self.scrn_butt.setFixedSize(*self.text_size)
         self.scrn_butt.clicked.connect(self.save_screen)
+
+        # Text size
+        self.splt_butt.setFixedSize(*self.text_size)
+        self.splt_snum.setFixedSize(*self.text_size)
+        self.splt_seed.setFixedSize(*self.text_size)
+        self.eras_butt.setFixedSize(*self.text_size)
+        self.scrn_butt.setFixedSize(*self.text_size)
 
         self.create_group1()
         self.create_group2()
 
     def create_group1(self):
         self.topLeftGroupBox = QGroupBox("Group 1")
-        self.topLeftGroupBox.setFixedWidth(250)
         layout = QGridLayout()
         layout.setHorizontalSpacing(8)
         layout.setVerticalSpacing(10)
@@ -115,9 +112,14 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         layout.addWidget(self.splt_butt, n, 1)
 
         n += 1
+        layout.addWidget(self.splt_snum, n, 1)
+        layout.addWidget(self.splt_seed, n, 2)
+
+        n += 1
         layout.addWidget(self.eras_butt, n, 1)
         layout.addWidget(self.scrn_butt, n, 2)
 
+        self.topLeftGroupBox.setFixedWidth(layout.columnCount() * 95)
         self.topLeftGroupBox.setFixedHeight((n + 1) * 37)
         self.topLeftGroupBox.setLayout(layout)
         self.layout.addWidget(self.topLeftGroupBox, 0)
@@ -131,6 +133,22 @@ class MainWidget(QtWidgets.QWidget, plot2d):
 
         self.topRightGroupBox.setLayout(layout)
         self.layout.addWidget(self.topRightGroupBox, 1)
+
+    def calc_split(self):
+        self.display.EraseAll()
+
+        num = self.text2int(self.splt_snum.text(), 1)
+        seed = self.text2int(self.splt_seed.text(), None)
+        
+        self.view.init_base(self.view.base)
+        self.view.split_run(num, seed)
+        sol_exp = TopExp_Explorer(self.view.splitter.Shape(), TopAbs_SOLID)
+        sol_exp.Next()
+
+        self.view.prop_soild(sol_exp.Current())
+        self.display.DisplayShape(sol_exp.Current(), transparency=0.5)
+        self.display.DisplayShape(self.view.base, transparency=0.8)
+        self.display.FitAll()
 
     def save_screen(self):
         # call from MainWindow => disappear QTimer
