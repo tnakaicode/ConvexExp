@@ -191,7 +191,7 @@ class CovExp (dispocc):
             e_vec = gp_Vec(e_curve.Value(u0), e_curve.Value(u1)).Normalized()
             txt = f"Face{self.fix_face_n}-Edge{edge_n}"
             self.display.DisplayShape(edge, color=self.colors[i])
-            self.display.DisplayMessage(plan.Location(), txt)
+            # self.display.DisplayMessage(p0, txt)
 
             # Axis defined by common edge
             line_axs = line.Position()  # gp_Ax1
@@ -206,6 +206,7 @@ class CovExp (dispocc):
             line_axs = gp_Ax3(p0,
                               vec_to_dir(vz),
                               vec_to_dir(vx))
+            line_flg = py.Dot(dir_to_vec(line_axs.YDirection()))
 
             print()
             print(f"Face: {self.fix_face_n}, Edge: {edge_n}")
@@ -215,8 +216,7 @@ class CovExp (dispocc):
             print("tmp face", plan_axs.Axis())
             print("Dir", py.Dot(dir_to_vec(line_axs.YDirection())))
 
-            self.face_rotate(face, line_axs, flg=py.Dot(
-                dir_to_vec(line_axs.YDirection())))
+            self.face_rotate(face, line_axs, flg=line_flg)
             # self.face_tranfer(face, plan.Axis())
 
             find_edge.Next()
@@ -257,14 +257,14 @@ class CovExp (dispocc):
         loc_face = TopLoc_Location(trf)
         new_face = face.Moved(loc_face)
         self.display.DisplayShape(new_face, transparency=0.5)
-        self.display.DisplayShape(rim_angle)
-        self.display.DisplayShape(rim_p0)
-        self.display.DisplayShape(rim_p2)
-        self.show_axs_pln(axs, scale=5)
-        self.display.DisplayMessage(rim_p0,
-                                    f"rim_p0: {np.rad2deg(rim_u0):.1f}")
-        self.display.DisplayMessage(rim_p2,
-                                    f"rim_p2: {np.rad2deg(rim_u2):.1f}")
+        # self.display.DisplayShape(rim_angle)
+        # self.display.DisplayShape(rim_p0)
+        # self.display.DisplayShape(rim_p2)
+        # self.show_axs_pln(axs, scale=5)
+        # self.display.DisplayMessage(rim_p0,
+        #                            f"rim_p0: {np.rad2deg(rim_u0):.1f}")
+        # self.display.DisplayMessage(rim_p2,
+        #                            f"rim_p2: {np.rad2deg(rim_u2):.1f}")
 
         ag_aspect = Prs3d_DimensionAspect()
         ag_aspect.SetCommonColor(Quantity_Color(Quantity_NOC_BLACK))
@@ -272,7 +272,7 @@ class CovExp (dispocc):
                                    axs.Location(),
                                    rim_p2)
         ag.SetDimensionAspect(ag_aspect)
-        self.display.Context.Display(ag, True)
+        # self.display.Context.Display(ag, True)
 
         return new_face
 
@@ -281,7 +281,7 @@ class CovExp (dispocc):
         self.fix_plan = self.pln_on_face(self.fix_face)
         self.fix_axis = self.fix_plan.Position()
         self.fix_face_n = 0
-        self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
+        # self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
         self.display.DisplayShape(self.fix_face, color="RED")
 
     def prop_fillet(self, sol=TopoDS_Solid()):

@@ -32,9 +32,11 @@ if __name__ == "__main__":
     sol_exp.Next()
     sol_exp.Next()
     sol_exp.Next()
+    sol_exp.Next()
     # obj.prop_fillet(sol_exp.Current())
     obj.prop_soild(sol_exp.Current())
     obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
+    obj.display.DisplayShape(obj.base, transparency=0.8)
     obj.ShowOCC()
 
     # print(obj.cal_vol())
