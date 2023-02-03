@@ -26,7 +26,7 @@ from PyQt5.QtWidgets import QFileDialog
 # pip install PyQt5
 # pip install --upgrade --force-reinstall PyQt5
 
-sys.path.append(os.path.join("../"))
+sys.path.append(os.path.join('../'))
 from src.base import SetDir, plot2d, which, create_tempnum
 from src.base_qtOCC import init_QDisplay
 
@@ -610,14 +610,16 @@ class GenCompound (object):
 
 class Viewer (object):
 
-    def __init__(self, disp=True):
+    def __init__(self, disp=True, touch=True):
+        self.touch = touch
+        self.selected_shape = []
         if disp == True:
             from OCC.Display.qtDisplay import qtViewer3d
             # self.app = self.get_app()
             # self.wi = self.app.topLevelWidgets()[0]
             self.vi = self.findChild(qtViewer3d, "qt_viewer_3d")
             # self.vi = self.wi.findChild(qtViewer3d, "qt_viewer_3d")
-        self.selected_shape = []
+            # self.on_select()
 
     def get_app(self):
         app = QApplication.instance()
@@ -626,6 +628,13 @@ class Viewer (object):
         if not app:
             app = QApplication(sys.argv)
         return app
+
+    def set_touch(self):
+        if self.touch == True:
+            self.touch = False
+        else:
+            self.touch = True
+        print("Touch:", self.touch)
 
     def on_select(self):
         self.vi.sig_topods_selected.connect(self._on_select)
@@ -639,12 +648,13 @@ class Viewer (object):
         ----------
         shape : TopoDS_Shape
         """
-        for shape in shapes:
-            print()
-            print(shape.Location().Transformation())
-            # print(shape.Location().Transformation().TranslationPart().Coord())
-            self.selected_shape.append(shape)
-            self.DumpTop(shape)
+        if self.touch == True:
+            for shape in shapes:
+                print()
+                print(shape.Location().Transformation())
+                # print(shape.Location().Transformation().TranslationPart().Coord())
+                self.selected_shape.append(shape)
+                self.DumpTop(shape)
 
     def make_comp_selcted(self):
         bild = BRep_Builder()
@@ -700,16 +710,16 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
         if disp == True:
             # self.display, self.start_display, self.add_menu, self.add_function, self.wi = init_qtdisplay()
             init_QDisplay.__init__(self)
-            if touch == True:
-                Viewer.__init__(self, disp=True)
-                self.on_select()
+            Viewer.__init__(self, disp=True, touch=touch)
+            self.on_select()
 
             self.SaveMenu()
             self.ViewMenu()
             self.SelectMenu()
             self.SelectMesh()
         else:
-            Viewer.__init__(self, disp=False)
+            Viewer.__init__(self, disp=False, touch=touch)
+            self.on_select()
 
         # GMSH
         self.gmsh = _gmsh_path()

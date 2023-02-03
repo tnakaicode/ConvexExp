@@ -84,6 +84,10 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         self.eras_butt = QPushButton('Erase All', self)
         self.eras_butt.clicked.connect(self.display.EraseAll)
 
+        # Touch Button
+        self.toch_butt = QPushButton('Touch', self)
+        self.toch_butt.clicked.connect(lambda: self.view.set_touch())
+
         # Save Screen Button
         self.scrn_butt = QPushButton('Save Screen', self)
         self.scrn_butt.clicked.connect(self.save_screen)
@@ -92,6 +96,7 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         self.splt_butt.setFixedSize(*self.text_size)
         self.splt_snum.setFixedSize(*self.text_size)
         self.splt_seed.setFixedSize(*self.text_size)
+        self.toch_butt.setFixedSize(*self.text_size)
         self.eras_butt.setFixedSize(*self.text_size)
         self.scrn_butt.setFixedSize(*self.text_size)
 
@@ -114,6 +119,9 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         n += 1
         layout.addWidget(self.splt_snum, n, 1)
         layout.addWidget(self.splt_seed, n, 2)
+
+        n += 1
+        layout.addWidget(self.toch_butt, n, 1)
 
         n += 1
         layout.addWidget(self.eras_butt, n, 1)
@@ -139,7 +147,7 @@ class MainWidget(QtWidgets.QWidget, plot2d):
 
         num = self.text2int(self.splt_snum.text(), 1)
         seed = self.text2int(self.splt_seed.text(), None)
-        
+
         self.view.init_base(self.view.base)
         self.view.split_run(num, seed)
         sol_exp = TopExp_Explorer(self.view.splitter.Shape(), TopAbs_SOLID)

@@ -34,8 +34,7 @@ from OCC.Extend.DataExchange import write_step_file, write_stl_file
 from OCC.Extend.ShapeFactory import make_face, make_edge
 from OCC.Extend.TopologyUtils import TopologyExplorer
 from OCCUtils.Construct import make_box
-from OCCUtils.Topology import shapeTypeString, dumpTopology
-from OCCUtils.Construct import vec_to_dir, dir_to_vec
+from OCCUtils.Construct import vec_to_dir, dir_to_vec, vertex2pnt
 
 from PyQt5.QtWidgets import QApplication, qApp
 from PyQt5.QtWidgets import QDialog, QCheckBox
@@ -71,8 +70,8 @@ def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
 
 class CovExp (dispocc):
 
-    def __init__(self, touch=False, file=False):
-        dispocc.__init__(self, touch=touch)
+    def __init__(self, temp=True, disp=True, touch=False):
+        dispocc.__init__(self, temp, disp, touch)
         self.prop = GProp_GProps()
         self.base = make_box(100, 100, 100)
         self.base_vol = self.cal_vol(self.base)
@@ -129,6 +128,15 @@ class CovExp (dispocc):
         edge_line = edge_adaptor.Line()
         return edge_line
 
+    def face_midpoint(self, face=TopoDS_Face()):
+        pts = [vertex2pnt(v) for v in TopologyExplorer(face).vertices()]
+        x, y, z = 0, 0, 0
+        for p in pts:
+            x += p.X()
+            y += p.Y()
+            z += p.Z()
+        return gp_Pnt(x / len(pts), y / len(pts), z / len(pts))
+
     def face_tranfer(self, face=TopoDS_Face(), axs=gp_Ax1()):
         axs_3 = gp_Ax3(axs.Location(), axs.Direction())
         trf = gp_Trsf()
@@ -150,6 +158,7 @@ class CovExp (dispocc):
         face_u = (face_umax + face_umin) / 2
         face_v = (face_vmax + face_vmin) / 2
         face_pnt = face_adaptor.Value(face_u, face_v)
+        face_pnt = self.face_midpoint(face)
         face_pln.SetLocation(face_pnt)
         return face_pln
 
@@ -284,6 +293,7 @@ class CovExp (dispocc):
         self.fix_face_n = 0
         # self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
         self.display.DisplayShape(self.fix_face, color="RED")
+        self.display.DisplayShape(self.fix_axis.Location())
 
     def prop_fillet(self, sol=TopoDS_Solid()):
         self.fill = BRepFilletAPI_MakeFillet(sol)
