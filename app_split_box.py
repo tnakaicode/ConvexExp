@@ -52,6 +52,18 @@ class OCCView(CovExp):
     def __init__(self, touch=False, file=False):
         CovExp.__init__(self, touch=False)
 
+    def cal_expand(self, snum, seed, nsol, nfce):
+        self.init_base(self.base)
+        self.split_run(snum, seed)
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        if nsol > sol_exp.Depth():
+            nsol = sol_exp.Depth()
+        for _ in range(nsol):
+            sol_exp.Next()
+
+        self.prop_soild(sol_exp.Current())
+        self.display.DisplayShape(sol_exp.Current(), transparency=0.5)
+
 
 class MainWidget(QtWidgets.QWidget, plot2d):
 
@@ -80,6 +92,14 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         self.splt_snum = QLineEdit('3', self)
         self.splt_seed = QLineEdit('11', self)
 
+        # Next Solid Button
+        self.sold_butt = QPushButton('Next Solid', self)
+        self.sold_snum = QLabel("Solid-0", self)
+
+        # Next Face Button
+        self.face_butt = QPushButton('Next Face', self)
+        self.face_snum = QLabel("Face-0", self)
+
         # Erase Button
         self.eras_butt = QPushButton('Erase All', self)
         self.eras_butt.clicked.connect(self.display.EraseAll)
@@ -96,6 +116,10 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         self.splt_butt.setFixedSize(*self.text_size)
         self.splt_snum.setFixedSize(*self.text_size)
         self.splt_seed.setFixedSize(*self.text_size)
+        self.sold_butt.setFixedSize(*self.text_size)
+        self.sold_snum.setFixedSize(*self.text_size)
+        self.face_butt.setFixedSize(*self.text_size)
+        self.face_snum.setFixedSize(*self.text_size)
         self.toch_butt.setFixedSize(*self.text_size)
         self.eras_butt.setFixedSize(*self.text_size)
         self.scrn_butt.setFixedSize(*self.text_size)
@@ -119,6 +143,14 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         n += 1
         layout.addWidget(self.splt_snum, n, 1)
         layout.addWidget(self.splt_seed, n, 2)
+
+        n += 1
+        layout.addWidget(self.sold_butt, n, 1)
+        layout.addWidget(self.sold_snum, n, 2)
+
+        n += 1
+        layout.addWidget(self.face_butt, n, 1)
+        layout.addWidget(self.face_snum, n, 2)
 
         n += 1
         layout.addWidget(self.toch_butt, n, 1)
@@ -145,16 +177,10 @@ class MainWidget(QtWidgets.QWidget, plot2d):
     def calc_split(self):
         self.display.EraseAll()
 
-        num = self.text2int(self.splt_snum.text(), 1)
+        snum = self.text2int(self.splt_snum.text(), 1)
         seed = self.text2int(self.splt_seed.text(), None)
+        self.view.cal_expand(snum, seed, 1, 1)
 
-        self.view.init_base(self.view.base)
-        self.view.split_run(num, seed)
-        sol_exp = TopExp_Explorer(self.view.splitter.Shape(), TopAbs_SOLID)
-        sol_exp.Next()
-
-        self.view.prop_soild(sol_exp.Current())
-        self.display.DisplayShape(sol_exp.Current(), transparency=0.5)
         self.display.DisplayShape(self.view.base, transparency=0.8)
         self.display.FitAll()
 

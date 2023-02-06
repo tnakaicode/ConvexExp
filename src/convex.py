@@ -201,7 +201,7 @@ class CovExp (dispocc):
             e_vec = gp_Vec(e_curve.Value(u0), e_curve.Value(u1)).Normalized()
             txt = f"Face{self.fix_face_n}-Edge{edge_n}"
             self.display.DisplayShape(edge, color=self.colors[i])
-            # self.display.DisplayMessage(p0, txt)
+            self.display.DisplayMessage(p0, txt)
 
             # Axis defined by common edge
             line_axs = line.Position()  # gp_Ax1
@@ -252,6 +252,7 @@ class CovExp (dispocc):
         rim_p0 = rim_circl.Value(rim_u0)
 
         pln_angle = self.fix_axis.Direction().Angle(plan_axs.Direction())
+        #pln_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction())
         print("Angle", np.rad2deg(pln_angle))
 
         rim_u2 = -pln_angle
@@ -268,8 +269,10 @@ class CovExp (dispocc):
         new_face = face.Moved(loc_face)
         self.display.DisplayShape(new_face, transparency=0.5)
         # self.display.DisplayShape(rim_angle)
-        # self.display.DisplayShape(rim_p0)
-        # self.display.DisplayShape(rim_p2)
+        self.display.DisplayShape(plan_axs.Location())
+        self.display.DisplayVector(dir_to_vec(plan_axs.Direction()).Scaled(5), plan_axs.Location())
+        #self.display.DisplayShape(rim_p0)
+        #self.display.DisplayShape(rim_p2)
         # self.show_axs_pln(axs, scale=5)
         # self.display.DisplayMessage(rim_p0,
         #                            f"rim_p0: {np.rad2deg(rim_u0):.1f}")
@@ -282,7 +285,7 @@ class CovExp (dispocc):
                                    axs.Location(),
                                    rim_p2)
         ag.SetDimensionAspect(ag_aspect)
-        # self.display.Context.Display(ag, True)
+        self.display.Context.Display(ag, True)
 
         return new_face
 
@@ -292,48 +295,55 @@ class CovExp (dispocc):
         self.fix_axis = self.fix_plan.Position()
         self.fix_face_n = 0
         # self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
+        self.display.DisplayVector(dir_to_vec(self.fix_axis.Direction()).Scaled(5), self.fix_axis.Location())
         self.display.DisplayShape(self.fix_face, color="RED")
         self.display.DisplayShape(self.fix_axis.Location())
 
     def prop_fillet(self, sol=TopoDS_Solid()):
         self.fill = BRepFilletAPI_MakeFillet(sol)
-        sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
+        fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
         print()
         print(sol, self.cal_vol(sol))
         print(sol_top.number_of_faces())
 
-        self.face_init(sol_exp.Current())
-        sol_exp.Next()
-        sol_exp.Next()
-        sol_exp.Next()
+        self.face_init(fce_exp.Current())
+        fce_exp.Next()
+        fce_exp.Next()
+        fce_exp.Next()
 
-        face = sol_exp.Current()
+        face = fce_exp.Current()
         self.face_fillet(face)
-        sol_exp.Next()
+        fce_exp.Next()
         self.fix_face_n += 1
 
-    def prop_soild(self, sol=TopoDS_Solid()):
+    def prop_soild(self, sol=TopoDS_Solid(), nfce=0):
         """property of Topo_DS_Solid
            Determine one TopoDS_Face as the basis for deployment.
 
         Args:
             sol (TopoDS_Solid()): Defaults to TopoDS_Solid().
         """
-        sol_exp = TopExp_Explorer(sol, TopAbs_FACE)
+        fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
         print()
         print(sol, self.cal_vol(sol))
         print(sol_top.number_of_faces())
+        
+        if nfce > fce_exp.Depth():
+            nfce = fce_exp.Depth()
+        for _ in range(nfce):
+            fce_exp.Next()
+        self.face_init(fce_exp.Current())
 
-        self.face_init(sol_exp.Current())
-        sol_exp.Next()
-        # sol_exp.Next()
-        # sol_exp.Next()
-        while sol_exp.More():
-            face = sol_exp.Current()
-            self.face_expand(face)
-            sol_exp.Next()
+        fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
+        while fce_exp.More():
+            face = fce_exp.Current()
+            if self.fix_face.IsEqual(face):
+                pass
+            else:
+                self.face_expand(face)
+            fce_exp.Next()
             self.fix_face_n += 1
 
     def prop_solids(self):
