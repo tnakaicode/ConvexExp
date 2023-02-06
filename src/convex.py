@@ -79,6 +79,8 @@ class CovExp (dispocc):
         self.splitter = BOPAlgo_Splitter()
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
+        
+        self.context = []
 
     def init_base(self, shape):
         self.base = shape
@@ -201,7 +203,7 @@ class CovExp (dispocc):
             e_vec = gp_Vec(e_curve.Value(u0), e_curve.Value(u1)).Normalized()
             txt = f"Face{self.fix_face_n}-Edge{edge_n}"
             self.display.DisplayShape(edge, color=self.colors[i])
-            self.display.DisplayMessage(p0, txt)
+            self.context.append(self.display.DisplayMessage(p0, txt))
 
             # Axis defined by common edge
             line_axs = line.Position()  # gp_Ax1
@@ -270,7 +272,7 @@ class CovExp (dispocc):
         self.display.DisplayShape(new_face, transparency=0.5)
         # self.display.DisplayShape(rim_angle)
         self.display.DisplayShape(plan_axs.Location())
-        self.display.DisplayVector(dir_to_vec(plan_axs.Direction()).Scaled(5), plan_axs.Location())
+        self.context.append(self.display.DisplayVector(dir_to_vec(plan_axs.Direction()).Scaled(5), plan_axs.Location()))
         #self.display.DisplayShape(rim_p0)
         #self.display.DisplayShape(rim_p2)
         # self.show_axs_pln(axs, scale=5)
@@ -285,7 +287,7 @@ class CovExp (dispocc):
                                    axs.Location(),
                                    rim_p2)
         ag.SetDimensionAspect(ag_aspect)
-        self.display.Context.Display(ag, True)
+        self.context.append (self.display.Context.Display(ag, True))
 
         return new_face
 
@@ -295,7 +297,7 @@ class CovExp (dispocc):
         self.fix_axis = self.fix_plan.Position()
         self.fix_face_n = 0
         # self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
-        self.display.DisplayVector(dir_to_vec(self.fix_axis.Direction()).Scaled(5), self.fix_axis.Location())
+        self.context.append(self.display.DisplayVector(dir_to_vec(self.fix_axis.Direction()).Scaled(5), self.fix_axis.Location()))
         self.display.DisplayShape(self.fix_face, color="RED")
         self.display.DisplayShape(self.fix_axis.Location())
 
