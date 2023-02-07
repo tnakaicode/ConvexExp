@@ -76,13 +76,18 @@ class CovExp (dispocc):
         self.base = make_box(100, 100, 100)
         self.base_vol = self.cal_vol(self.base)
 
+        self.nsol = 1
+        self.nfce = 1
+
         self.splitter = BOPAlgo_Splitter()
         self.splitter.AddArgument(self.base)
         print(self.cal_vol(self.base))
-        
+
         self.context = []
 
     def init_base(self, shape):
+        self.nsol = 0
+        self.nfce = 0
         self.base = shape
         self.base_vol = self.cal_vol(self.base)
 
@@ -254,7 +259,7 @@ class CovExp (dispocc):
         rim_p0 = rim_circl.Value(rim_u0)
 
         pln_angle = self.fix_axis.Direction().Angle(plan_axs.Direction())
-        #pln_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction())
+        # pln_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction())
         print("Angle", np.rad2deg(pln_angle))
 
         rim_u2 = -pln_angle
@@ -272,9 +277,10 @@ class CovExp (dispocc):
         self.display.DisplayShape(new_face, transparency=0.5)
         # self.display.DisplayShape(rim_angle)
         self.display.DisplayShape(plan_axs.Location())
-        self.context.append(self.display.DisplayVector(dir_to_vec(plan_axs.Direction()).Scaled(5), plan_axs.Location()))
-        #self.display.DisplayShape(rim_p0)
-        #self.display.DisplayShape(rim_p2)
+        self.context.append(self.display.DisplayVector(dir_to_vec(
+            plan_axs.Direction()).Scaled(5), plan_axs.Location()))
+        # self.display.DisplayShape(rim_p0)
+        # self.display.DisplayShape(rim_p2)
         # self.show_axs_pln(axs, scale=5)
         # self.display.DisplayMessage(rim_p0,
         #                            f"rim_p0: {np.rad2deg(rim_u0):.1f}")
@@ -287,7 +293,7 @@ class CovExp (dispocc):
                                    axs.Location(),
                                    rim_p2)
         ag.SetDimensionAspect(ag_aspect)
-        self.context.append (self.display.Context.Display(ag, True))
+        self.context.append(self.display.Context.Display(ag, True))
 
         return new_face
 
@@ -297,7 +303,8 @@ class CovExp (dispocc):
         self.fix_axis = self.fix_plan.Position()
         self.fix_face_n = 0
         # self.show_axs_pln(self.fix_axis, scale=20, name="Fix-Face")
-        self.context.append(self.display.DisplayVector(dir_to_vec(self.fix_axis.Direction()).Scaled(5), self.fix_axis.Location()))
+        self.context.append(self.display.DisplayVector(dir_to_vec(
+            self.fix_axis.Direction()).Scaled(5), self.fix_axis.Location()))
         self.display.DisplayShape(self.fix_face, color="RED")
         self.display.DisplayShape(self.fix_axis.Location())
 
@@ -331,12 +338,16 @@ class CovExp (dispocc):
         print()
         print(sol, self.cal_vol(sol))
         print(sol_top.number_of_faces())
-        
-        if nfce > fce_exp.Depth():
-            nfce = fce_exp.Depth()
-        for _ in range(nfce):
+
+        if sol_top.number_of_faces() < self.nfce:
+            self.nfce = 1
+        fce = fce_exp.Current()
+        fce_num = 1
+        while fce_exp.More() and self.nfce > fce_num:
+            fce = fce_exp.Current()
+            fce_num += 1
             fce_exp.Next()
-        self.face_init(fce_exp.Current())
+        self.face_init(fce)
 
         fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
         while fce_exp.More():

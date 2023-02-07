@@ -52,17 +52,27 @@ class OCCView(CovExp):
     def __init__(self, touch=False, file=False):
         CovExp.__init__(self, touch=False)
 
-    def cal_expand(self, snum, seed, nsol, nfce):
-        self.init_base(self.base)
-        self.split_run(snum, seed)
+    def cal_expand(self, run, snum, seed, nsol, nfce):
+        if run == None:
+            self.init_base(self.base)
+            self.split_run(snum, seed)
+            self.nsol = 1
+            self.nfce = 1
+        self.nsol += nsol
+        self.nfce += nfce
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
-        if nsol > sol_exp.Depth():
-            nsol = sol_exp.Depth()
-        for _ in range(nsol):
+        sol_top = TopologyExplorer(self.splitter.Shape())
+        if sol_top.number_of_solids() < self.nsol:
+            self.nsol = 1
+        sol_num = 1
+        sol = sol_exp.Current()
+        while sol_exp.More() and self.nsol > sol_num:
+            sol = sol_exp.Current()
+            sol_num += 1
             sol_exp.Next()
 
-        self.prop_soild(sol_exp.Current())
-        self.display.DisplayShape(sol_exp.Current(), transparency=0.5)
+        self.prop_soild(sol, self.nfce)
+        self.display.DisplayShape(sol, transparency=0.5)
 
     def EraseContext(self):
         for v in self.context:
@@ -94,18 +104,23 @@ class MainWidget(QtWidgets.QWidget, plot2d):
 
         # Split Button
         self.splt_butt = QPushButton('Split Box', self)
-        self.splt_butt.clicked.connect(lambda: self.calc_split())
-
         self.splt_snum = QLineEdit('3', self)
         self.splt_seed = QLineEdit('11', self)
+        self.splt_butt.clicked.connect(lambda: self.calc_split(None, 0, 0))
 
         # Next Solid Button
         self.sold_butt = QPushButton('Next Solid', self)
-        self.sold_snum = QLabel("Solid-0", self)
+        self.sold_snum = QLabel(f"Solid-{self.view.nsol}", self)
+        self.sold_butt.clicked.connect(lambda: self.calc_split(1, 1, 0))
+        self.sold_butt.clicked.connect(
+            lambda: self.sold_snum.setText(f"Solid-{self.view.nsol}"))
 
         # Next Face Button
         self.face_butt = QPushButton('Next Face', self)
-        self.face_snum = QLabel("Face-0", self)
+        self.face_snum = QLabel(f"Face-{self.view.nfce}", self)
+        self.face_butt.clicked.connect(lambda: self.calc_split(1, 0, 1))
+        self.face_butt.clicked.connect(
+            lambda: self.face_snum.setText(f"Face-{self.view.nfce}"))
 
         # Erase Button
         self.eras_butt = QPushButton('Erase All', self)
@@ -181,12 +196,12 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         self.topRightGroupBox.setLayout(layout)
         self.layout.addWidget(self.topRightGroupBox, 1)
 
-    def calc_split(self):
+    def calc_split(self, run=None, nsol=0, nfce=0):
         self.view.EraseContext()
 
         snum = self.text2int(self.splt_snum.text(), 1)
         seed = self.text2int(self.splt_seed.text(), None)
-        self.view.cal_expand(snum, seed, 1, 1)
+        self.view.cal_expand(run, snum, seed, nsol, nfce)
 
         self.display.DisplayShape(self.view.base, transparency=0.8)
         self.display.FitAll()
