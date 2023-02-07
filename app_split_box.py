@@ -71,7 +71,7 @@ class OCCView(CovExp):
             sol_num += 1
             sol_exp.Next()
 
-        self.prop_soild(sol, self.nfce)
+        self.prop_soild(sol)
         self.display.DisplayShape(sol, transparency=0.5)
 
     def EraseContext(self):

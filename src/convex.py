@@ -326,7 +326,7 @@ class CovExp (dispocc):
         fce_exp.Next()
         self.fix_face_n += 1
 
-    def prop_soild(self, sol=TopoDS_Solid(), nfce=0):
+    def prop_soild(self, sol=TopoDS_Solid()):
         """property of Topo_DS_Solid
            Determine one TopoDS_Face as the basis for deployment.
 
