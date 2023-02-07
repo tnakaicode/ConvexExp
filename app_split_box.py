@@ -63,12 +63,13 @@ class OCCView(CovExp):
 
         self.prop_soild(sol_exp.Current())
         self.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-    
+
     def EraseContext(self):
         for v in self.context:
             if v != None:
-              v.Clear()  
+                v.Clear()
         self.context = []
+        self.display.EraseAll()
 
 
 class MainWidget(QtWidgets.QWidget, plot2d):
@@ -108,7 +109,6 @@ class MainWidget(QtWidgets.QWidget, plot2d):
 
         # Erase Button
         self.eras_butt = QPushButton('Erase All', self)
-        self.eras_butt.clicked.connect(self.display.EraseAll)
         self.eras_butt.clicked.connect(lambda: self.view.EraseContext())
 
         # Touch Button
@@ -182,7 +182,7 @@ class MainWidget(QtWidgets.QWidget, plot2d):
         self.layout.addWidget(self.topRightGroupBox, 1)
 
     def calc_split(self):
-        self.display.EraseAll()
+        self.view.EraseContext()
 
         snum = self.text2int(self.splt_snum.text(), 1)
         seed = self.text2int(self.splt_seed.text(), None)
