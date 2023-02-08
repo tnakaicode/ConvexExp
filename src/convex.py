@@ -262,17 +262,18 @@ class CovExp (dispocc):
         pln_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction(),
                                                            axs.Direction())
         #print("Angle", np.rad2deg(pln_angle))
+        
+        ang = -pln_angle % np.pi
 
-        ang = -pln_angle
-        #if flg >= 0:
-        #    ang = pln_angle - np.pi
-        #else:
-        #    ang = -pln_angle
+        if flg >= 0:
+            ang = np.pi - pln_angle
+        else:
+            ang = -pln_angle % np.pi
         print("Angle", np.rad2deg(pln_angle), np.rad2deg(ang))
 
         rim_u2 = ang
         rim_p2 = rim_circl.Value(rim_u2)
-        rim_angle = Geom_TrimmedCurve(rim_circl, rim_u0, rim_u2)
+        rim_angle = Geom_TrimmedCurve(rim_circl, rim_u2, rim_u0)
 
         trf = gp_Trsf()
         trf.SetRotation(axs.Axis(), ang)
