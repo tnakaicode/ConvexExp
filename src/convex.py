@@ -214,11 +214,11 @@ class CovExp (dispocc):
             line_axs = line.Position()  # gp_Ax1
             line_axs.SetLocation(p0)
 
-            pz = dir_to_vec(plan_axs.Direction())
-            px = gp_Vec(p0, plan_axs.Location()).Normalized()
-            py = gp_Vec(p0, self.fix_axis.Location()).Normalized()
-            vx = pz.Crossed(vz)
-            if px.Dot(vx) < 0:
+            px = gp_Vec(p0, self.fix_axis.Location()).Normalized()
+            py = gp_Vec(p0, plan_axs.Location()).Normalized()
+            vy = vz.Crossed(px)
+            vx = vz.Crossed(vy)
+            if px.Dot(vx) > 0:
                 vx.Reverse()
             line_axs = gp_Ax3(p0,
                               vec_to_dir(vz),
@@ -231,7 +231,7 @@ class CovExp (dispocc):
             print(face, self.cal_are(face), plan)
             print("fix face", self.fix_axis.Axis())
             print("tmp face", plan_axs.Axis())
-            print("Dir", py.Dot(dir_to_vec(line_axs.YDirection())))
+            print("Dir", line_flg)
 
             self.face_rotate(face, line_axs, flg=line_flg)
             # self.face_tranfer(face, plan.Axis())
@@ -259,27 +259,32 @@ class CovExp (dispocc):
         rim_p0 = rim_circl.Value(rim_u0)
 
         pln_angle = self.fix_axis.Direction().Angle(plan_axs.Direction())
-        # pln_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction())
-        print("Angle", np.rad2deg(pln_angle))
+        pln_angle = self.fix_axis.Direction().AngleWithRef(plan_axs.Direction(),
+                                                           axs.Direction())
+        #print("Angle", np.rad2deg(pln_angle))
 
-        rim_u2 = -pln_angle
+        ang = -pln_angle
+        #if flg >= 0:
+        #    ang = pln_angle - np.pi
+        #else:
+        #    ang = -pln_angle
+        print("Angle", np.rad2deg(pln_angle), np.rad2deg(ang))
+
+        rim_u2 = ang
         rim_p2 = rim_circl.Value(rim_u2)
         rim_angle = Geom_TrimmedCurve(rim_circl, rim_u0, rim_u2)
 
         trf = gp_Trsf()
-        if flg >= 0:
-            ang = rim_u2
-        else:
-            ang = rim_u2 - np.pi
         trf.SetRotation(axs.Axis(), ang)
         loc_face = TopLoc_Location(trf)
         new_face = face.Moved(loc_face)
         self.display.DisplayShape(new_face, transparency=0.5)
-        # self.display.DisplayShape(rim_angle)
+        self.display.DisplayShape(rim_angle)
         self.display.DisplayShape(plan_axs.Location())
-        self.context.append(self.display.DisplayVector(dir_to_vec(
-            plan_axs.Direction()).Scaled(5), plan_axs.Location()))
-        # self.display.DisplayShape(rim_p0)
+        self.context.append(self.display.DisplayVector(dir_to_vec(plan_axs.Direction()).Scaled(5), plan_axs.Location()))
+        self.context.append(self.display.DisplayVector(dir_to_vec(axs.Direction()).Scaled(5), axs.Location()))
+        self.context.append(self.display.DisplayVector(dir_to_vec(axs.XDirection()).Scaled(5), axs.Location()))
+        self.display.DisplayShape(rim_p0)
         # self.display.DisplayShape(rim_p2)
         # self.show_axs_pln(axs, scale=5)
         # self.display.DisplayMessage(rim_p0,
@@ -289,11 +294,11 @@ class CovExp (dispocc):
 
         ag_aspect = Prs3d_DimensionAspect()
         ag_aspect.SetCommonColor(Quantity_Color(Quantity_NOC_BLACK))
-        ag = PrsDim_AngleDimension(rim_p0,
+        ag = PrsDim_AngleDimension(rim_p2,
                                    axs.Location(),
-                                   rim_p2)
+                                   rim_p0)
         ag.SetDimensionAspect(ag_aspect)
-        self.context.append(self.display.Context.Display(ag, True))
+        #self.context.append(self.display.Context.Display(ag, True))
 
         return new_face
 

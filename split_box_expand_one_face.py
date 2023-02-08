@@ -24,18 +24,30 @@ from src.convex import CovExp
 
 if __name__ == "__main__":
     obj = CovExp(touch=False)
-    obj.split_run(3)
-    # obj.prop_solids()
+    
+    snum = 3
+    seed = 11
+    
+    obj.init_base(obj.base)
+    obj.split_run(snum, seed)
+    obj.nsol = 2
+    obj.nfce = 1
+    
+    sol_exp = TopExp_Explorer( obj.splitter.Shape(), TopAbs_SOLID)
+    sol_top = TopologyExplorer(obj.splitter.Shape())
 
-    sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
-    sol_exp.Next()
-    sol_exp.Next()
-    sol_exp.Next()
-    sol_exp.Next()
-    sol_exp.Next()
-    # obj.prop_fillet(sol_exp.Current())
-    obj.prop_soild(sol_exp.Current(), 1)
-    obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
+    if sol_top.number_of_solids() < obj.nsol:
+        obj.nsol = 1
+
+    sol_num = 1
+    sol = sol_exp.Current()
+    while sol_exp.More() and obj.nsol > sol_num:
+        sol = sol_exp.Current()
+        sol_num += 1
+        sol_exp.Next()
+
+    obj.prop_soild(sol)
+    obj.display.DisplayShape(sol, transparency=0.5)
     obj.display.DisplayShape(obj.base, transparency=0.8)
     obj.ShowOCC()
 
