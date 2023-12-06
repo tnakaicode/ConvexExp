@@ -36,12 +36,12 @@ from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
 from OCC.Core.gp import gp_XYZ
 from OCC.Core.gp import gp_Lin, gp_Elips, gp_Pln
 from OCC.Core.gp import gp_Mat, gp_GTrsf, gp_Trsf
-from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Compound, TopoDS_Face, topods_Face, topods_Solid
+from OCC.Core.TopoDS import TopoDS_Shape, TopoDS_Compound, TopoDS_Face
+from OCC.Core.TopoDS import TopoDS_Iterator, topods
 from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.TColgp import TColgp_Array1OfPnt, TColgp_Array2OfPnt
 from OCC.Core.TColgp import TColgp_HArray1OfPnt, TColgp_HArray2OfPnt
 from OCC.Core.TopAbs import TopAbs_FACE, TopAbs_SOLID, TopAbs_VERTEX, TopAbs_SHAPE
-from OCC.Core.TopoDS import TopoDS_Iterator, topods_Vertex
 from OCC.Core.TopExp import TopExp_Explorer
 from OCC.Core.BRep import BRep_Tool
 from OCC.Core.BRep import BRep_Builder
@@ -49,7 +49,7 @@ from OCC.Core.BRepProj import BRepProj_Projection
 from OCC.Core.BRepAlgo import BRepAlgo_FaceRestrictor
 from OCC.Core.BRepFill import BRepFill_Filling
 from OCC.Core.BRepFill import BRepFill_CurveConstraint
-from OCC.Core.BRepTools import breptools_Read
+from OCC.Core.BRepTools import breptools
 from OCC.Core.BRepOffset import BRepOffset_MakeOffset, BRepOffset_Skin, BRepOffset_Interval
 from OCC.Core.BRepOffsetAPI import BRepOffsetAPI_ThruSections, BRepOffsetAPI_MakeOffset, BRepOffsetAPI_MakeEvolved, BRepOffsetAPI_MakePipe, BRepOffsetAPI_MakePipeShell
 from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeSphere, BRepPrimAPI_MakeBox
@@ -59,9 +59,9 @@ from OCC.Core.BRepBuilderAPI import BRepBuilderAPI_GTransform
 from OCC.Core.BRepIntCurveSurface import BRepIntCurveSurface_Inter
 from OCC.Core.BRepLProp import BRepLProp_SurfaceTool, BRepLProp_SLProps
 from OCC.Core.BRepAdaptor import BRepAdaptor_Surface
-from OCC.Core.BRepBndLib import brepbndlib, brepbndlib_Add, brepbndlib_AddOBB, brepbndlib_AddOptimal
-from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
 from OCC.Core.Bnd import Bnd_Box, Bnd_OBB
+from OCC.Core.BRepBndLib import brepbndlib
+from OCC.Core.BRepMesh import BRepMesh_IncrementalMesh
 from OCC.Core.Geom import Geom_Plane, Geom_Surface, Geom_BSplineSurface
 from OCC.Core.Geom import Geom_Curve, Geom_Line, Geom_Ellipse, Geom_Circle
 from OCC.Core.Geom import Geom_RectangularTrimmedSurface, Geom_ToroidalSurface
@@ -82,7 +82,6 @@ from OCC.Core.AIS import AIS_Manipulator
 from OCC.Core.V3d import V3d_SpotLight, V3d_XnegYnegZpos, V3d_XposYposZpos
 from OCC.Core.Graphic3d import Graphic3d_NOM_ALUMINIUM, Graphic3d_NOM_COPPER, Graphic3d_NOM_BRASS
 from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_WHITE, Quantity_NOC_CORAL2, Quantity_NOC_BROWN
-from OCC.Core.BRepTools import breptools_Write
 from OCC.Extend.DataExchange import write_step_file, read_step_file
 from OCC.Extend.DataExchange import write_iges_file, read_iges_file
 from OCC.Extend.DataExchange import write_stl_file, read_stl_file
@@ -388,7 +387,7 @@ def get_boundxyz_pts(pts, axs=gp_Ax3()):
 
     bbox = Bnd_Box()
     bbox.Set(axs.Location(), axs.Direction())
-    brepbndlib_Add(shape, bbox)
+    brepbndlib.Add(shape, bbox)
 
     xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
     return [xmin, ymin, zmin, xmax, ymax, zmax]
@@ -407,7 +406,7 @@ def get_boundxyz_rim(rim, axs=gp_Ax3()):
 
     bbox = Bnd_Box()
     bbox.Set(axs.Location(), axs.Direction())
-    brepbndlib_Add(shape, bbox)
+    brepbndlib.Add(shape, bbox)
 
     xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
     return [xmin, ymin, zmin, xmax, ymax, zmax]
@@ -428,7 +427,7 @@ def get_boundxyz_face(face, axs=gp_Ax3()):
 
     bbox = Bnd_Box()
     bbox.Set(axs.Location(), axs.XDirection())
-    brepbndlib_Add(shape, bbox)
+    brepbndlib.Add(shape, bbox)
 
     xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
     return [xmin, ymin, zmin, xmax, ymax, zmax]
@@ -466,10 +465,10 @@ def get_aligned_boundingbox_ratio(shape, tol=1e-6, optimal_BB=True, ratio=1):
     if optimal_BB:
         use_triangulation = True
         use_shapetolerance = True
-        brepbndlib_AddOptimal(
+        brepbndlib.AddOptimal(
             shape, bbox, use_triangulation, use_shapetolerance)
     else:
-        brepbndlib_Add(shape, bbox)
+        brepbndlib.Add(shape, bbox)
 
     xmin, ymin, zmin, xmax, ymax, zmax = bbox.Get()
     dx, mx = (xmax - xmin) * ratio, (xmax + xmin) / 2
@@ -531,10 +530,10 @@ def get_oriented_boundingbox_ratio(shape, optimal_OBB=True, ratio=1.0):
         is_triangulationUsed = True
         is_optimal = True
         is_shapeToleranceUsed = False
-        brepbndlib_AddOBB(shape, obb, is_triangulationUsed,
+        brepbndlib.AddOBB(shape, obb, is_triangulationUsed,
                           is_optimal, is_shapeToleranceUsed)
     else:
-        brepbndlib_AddOBB(shape, obb)
+        brepbndlib.AddOBB(shape, obb)
 
     # converts the bounding box to a shape
     aBaryCenter = obb.Center()
@@ -567,7 +566,7 @@ def face_mesh_triangle(comp=TopoDS_Shape(), isR=0.1, thA=0.1):
     bt = BRep_Tool()
     ex = TopExp_Explorer(comp, TopAbs_FACE)
     while ex.More():
-        face = topods_Face(ex.Current())
+        face = topods.Face(ex.Current())
         location = TopLoc_Location()
         facing = bt.Triangulation(face, location)
         tab = facing.Nodes()
@@ -678,7 +677,7 @@ class Viewer (object):
         brt = BRep_Tool()
         s = shape.ShapeType()
         if s == TopAbs_VERTEX:
-            pnt = brt.Pnt(topods_Vertex(shape))
+            pnt = brt.Pnt(topods.Vertex(shape))
             dmp = " " * level
             dmp += "%s - " % shapeTypeString(shape)
             dmp += "%.5e %.5e %.5e" % (pnt.X(), pnt.Y(), pnt.Z())
@@ -909,7 +908,7 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
         elif extname in [".brep"]:
             shpe = TopoDS_Shape()
             builder = BRep_Builder()
-            breptools_Read(shpe, fileName, builder)
+            breptools.Read(shpe, fileName, builder)
         elif extname in [".geo"]:
             stlfile = self.import_geofile(fileName, 0.1)
             shpe = read_stl_file(stlfile)
@@ -973,7 +972,7 @@ class OCCApp(plot2d, init_QDisplay, Viewer):
     def export_brep_selected(self):
         comp = self.make_comp_selcted()
         brepname = create_tempnum(self.rootname, self.tmpdir, ".brep")
-        breptools_Write(comp, brepname)
+        breptools.Write(comp, brepname)
 
     def save_view(self, num="0"):
         self.display.View_Top()

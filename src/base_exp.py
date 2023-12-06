@@ -16,9 +16,7 @@ from OCC.Core.TopLoc import TopLoc_Location
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCC.Core.BRepLProp import BRepLProp_CLProps
-from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
-from OCC.Core.BRepGProp import brepgprop_VolumeProperties
-from OCC.Core.BRepGProp import brepgprop_LinearProperties
+from OCC.Core.BRepGProp import brepgprop
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BRepAlgo import BRepAlgo_BooleanOperation
 from OCC.Core.BOPAlgo import BOPAlgo_MakerVolume, BOPAlgo_Builder
@@ -166,15 +164,15 @@ class CovExp (plotocc):
         self.splitter.Perform()
 
     def cal_len(self, shp=TopoDS_Shape()):
-        brepgprop_LinearProperties(shp, self.prop)
+        brepgprop.LinearProperties(shp, self.prop)
         return self.prop.Mass()
 
     def cal_are(self, shp=TopoDS_Shape()):
-        brepgprop_SurfaceProperties(shp, self.prop)
+        brepgprop.SurfaceProperties(shp, self.prop)
         return self.prop.Mass()
 
     def cal_vol(self, shp=TopoDS_Shape()):
-        brepgprop_VolumeProperties(shp, self.prop)
+        brepgprop.VolumeProperties(shp, self.prop)
         return self.prop.Mass()
 
     def prop_edge(self, edge=TopoDS_Edge()):
