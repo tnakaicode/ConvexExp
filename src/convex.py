@@ -84,6 +84,10 @@ class CovExp (dispocc):
         print(self.cal_vol(self.base))
 
         self.context = []
+        
+        # Define colors for visualization
+        self.colors = ["BLUE", "GREEN", "YELLOW", "CYAN", "MAGENTA", 
+                      "ORANGE", "PURPLE", "BROWN", "PINK", "GRAY"]
 
     def init_base(self, shape):
         self.nsol = 0
@@ -182,62 +186,148 @@ class CovExp (dispocc):
         self.display.DisplayShape(self.fill.Shape(), transparency=0.8)
         self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
 
-    def face_expand(self, face=TopoDS_Face()):
-        """Scan around fix_face as a reference and TopDS_Edge in common with the TopoDS_Face that constitutes TopDS_Solid.
-           If there is a common TopDS_Edge, the face is rotated (self.rotate_face) around the TopDS_Edge.
+    def unfold_adjacent_faces(self, base_face=TopoDS_Face(), solid=TopoDS_Solid()):
+        """Unfold all faces adjacent to the given base face onto the same plane as the base face.
+           All adjacent faces will be rotated around their common edge with the base face
+           to lie in the same plane as the base face.
 
         Args:
-            face (_type_, optional): _description_. Defaults to TopoDS_Face().
+            base_face (TopoDS_Face): The reference face that defines the target plane
+            solid (TopoDS_Solid): The solid containing all faces to be unfolded
         """
-        plan = self.pln_on_face(face)  # gp_Pln
-        plan_axs = plan.Position()  # gp_Ax3
-        find_edge = LocOpe_FindEdges(self.fix_face, face)
-        find_edge.InitIterator()
-        edge_n = 0
-        while find_edge.More():
-            i = (edge_n + self.fix_face_n) % len(self.colors)
+        # Get the plane of the base face (target plane for unfolding)
+        base_plane = self.pln_on_face(base_face)
+        base_normal = base_plane.Position().Direction()
+        
+        print(f"Base face plane: {base_plane}")
+        print(f"Base face normal: {base_normal.X():.3f}, {base_normal.Y():.3f}, {base_normal.Z():.3f}")
+        
+        # Display the base face
+        self.display.DisplayShape(base_face, color="RED", transparency=0.3)
+        
+        # Find all faces adjacent to the base face
+        adjacent_faces = self._find_adjacent_faces(base_face, solid)
+        
+        print(f"Found {len(adjacent_faces)} adjacent faces")
+        
+        # Unfold each adjacent face
+        unfolded_faces = []
+        for i, (adjacent_face, common_edge) in enumerate(adjacent_faces):
+            try:
+                unfolded_face = self._unfold_face_to_plane(
+                    face=adjacent_face,
+                    target_plane=base_plane,
+                    rotation_edge=common_edge,
+                    face_index=i
+                )
+                unfolded_faces.append(unfolded_face)
+                
+                # Display the unfolded face
+                color = self.colors[i % len(self.colors)] if hasattr(self, 'colors') else "BLUE"
+                self.display.DisplayShape(unfolded_face, color=color, transparency=0.5)
+                
+            except Exception as e:
+                print(f"Failed to unfold face {i}: {e}")
+                
+        return unfolded_faces
 
-            # Common TopoDS_Edge of face and fix_face
-            edge = find_edge.EdgeTo()  # TopoDS_Edge
-            line = self.prop_edge(edge)  # gp_Lin
+    def _find_adjacent_faces(self, base_face, solid):
+        """Find all faces that share an edge with the base face.
+        
+        Returns:
+            list: List of tuples (adjacent_face, common_edge)
+        """
+        adjacent_faces = []
+        
+        # Get all edges of the base face
+        base_edges = list(TopologyExplorer(base_face).edges())
+        
+        # Iterate through all faces in the solid
+        face_explorer = TopExp_Explorer(solid, TopAbs_FACE)
+        while face_explorer.More():
+            current_face = face_explorer.Current()
+            
+            # Skip if it's the base face itself
+            if not base_face.IsEqual(current_face):
+                # Check if this face shares an edge with the base face
+                common_edge = self._find_common_edge(base_face, current_face)
+                if common_edge:
+                    adjacent_faces.append((current_face, common_edge))
+                    
+            face_explorer.Next()
+            
+        return adjacent_faces
 
-            e_curve, u0, u1 = BRep_Tool.Curve(edge)
-            vz = gp_Vec(0, 0, 1)  # tangent of edge
-            p0 = gp_Pnt(0, 0, 1)  # midpoint of edge
-            e_curve.D1((u0 + u1) / 2, p0, vz)
-            e_vec = gp_Vec(e_curve.Value(u0), e_curve.Value(u1)).Normalized()
-            txt = f"Face{self.fix_face_n}-Edge{edge_n}"
-            self.display.DisplayShape(edge, color=self.colors[i])
-            self.context.append(self.display.DisplayMessage(p0, txt))
+    def _find_common_edge(self, face1, face2):
+        """Find the common edge between two faces.
+        
+        Returns:
+            TopoDS_Edge or None: The common edge if found, None otherwise
+        """
+        edges1 = list(TopologyExplorer(face1).edges())
+        edges2 = list(TopologyExplorer(face2).edges())
+        
+        for edge1 in edges1:
+            for edge2 in edges2:
+                if edge1.IsEqual(edge2):
+                    return edge1
+        return None
 
-            # Axis defined by common edge
-            line_axs = line.Position()  # gp_Ax1
-            line_axs.SetLocation(p0)
-
-            px = gp_Vec(p0, self.fix_axis.Location()).Normalized()
-            py = gp_Vec(p0, plan_axs.Location()).Normalized()
-            vy = vz.Crossed(px)
-            vx = vz.Crossed(vy)
-            if px.Dot(vx) > 0:
-                vx.Reverse()
-            line_axs = gp_Ax3(p0,
-                              vec_to_dir(vz),
-                              vec_to_dir(vx))
-            line_flg = py.Dot(dir_to_vec(line_axs.YDirection()))
-
-            print()
-            print(f"Face: {self.fix_face_n}, Edge: {edge_n}")
-            print(edge, self.cal_len(edge))
-            print(face, self.cal_are(face), plan)
-            print("fix face", self.fix_axis.Axis())
-            print("tmp face", plan_axs.Axis())
-            print("Dir", line_flg)
-
-            self.face_rotate(face, line_axs, flg=line_flg)
-            # self.face_tranfer(face, plan.Axis())
-
-            find_edge.Next()
-            edge_n += 1
+    def _unfold_face_to_plane(self, face, target_plane, rotation_edge, face_index=0):
+        """Unfold a face to lie in the target plane by rotating around the rotation edge.
+        
+        Args:
+            face (TopoDS_Face): Face to unfold
+            target_plane (gp_Pln): Target plane to unfold onto
+            rotation_edge (TopoDS_Edge): Edge to rotate around
+            face_index (int): Index for debugging/labeling
+            
+        Returns:
+            TopoDS_Face: The unfolded face
+        """
+        # Get the current plane of the face
+        current_plane = self.pln_on_face(face)
+        current_normal = current_plane.Position().Direction()
+        target_normal = target_plane.Position().Direction()
+        
+        # Get edge geometry for rotation axis
+        edge_curve, u0, u1 = BRep_Tool.Curve(rotation_edge)
+        edge_start = edge_curve.Value(u0)
+        edge_end = edge_curve.Value(u1)
+        edge_direction = gp_Vec(edge_start, edge_end).Normalized()
+        edge_midpoint = gp_Pnt((edge_start.X() + edge_end.X()) / 2,
+                              (edge_start.Y() + edge_end.Y()) / 2,
+                              (edge_start.Z() + edge_end.Z()) / 2)
+        
+        # Create rotation axis
+        rotation_axis = gp_Ax1(edge_midpoint, vec_to_dir(edge_direction))
+        
+        # Calculate the rotation angle to align normals
+        # The angle should make the face normal align with the target plane normal
+        angle = current_normal.AngleWithRef(target_normal, vec_to_dir(edge_direction))
+        
+        # Ensure we rotate in the correct direction for unfolding
+        # We want the face to "open" away from the solid, not fold into it
+        if abs(angle) > np.pi / 2:
+            angle = np.pi - abs(angle) if angle > 0 else -(np.pi - abs(angle))
+        
+        print(f"Face {face_index}: Rotation angle = {np.rad2deg(angle):.1f}°")
+        
+        # Create transformation
+        transform = gp_Trsf()
+        transform.SetRotation(rotation_axis, angle)
+        
+        # Apply transformation
+        location = TopLoc_Location(transform)
+        unfolded_face = face.Moved(location)
+        
+        # Display rotation information
+        self.display.DisplayShape(rotation_edge, color="GREEN")
+        self.display.DisplayShape(edge_midpoint)
+        self.context.append(self.display.DisplayMessage(
+            edge_midpoint, f"Face{face_index}: {np.rad2deg(angle):.1f}°"))
+        
+        return unfolded_face
 
     def face_rotate(self, face=TopoDS_Face(), axs=gp_Ax3(), flg=1):
         """face rotate
@@ -333,43 +423,220 @@ class CovExp (dispocc):
         self.fix_face_n += 1
 
     def prop_soild(self, sol=TopoDS_Solid()):
-        """property of Topo_DS_Solid
-           Determine one TopoDS_Face as the basis for deployment.
+        """Property of TopoDS_Solid
+           Select one TopoDS_Face as the basis for unfolding and unfold all adjacent faces.
 
         Args:
-            sol (TopoDS_Solid()): Defaults to TopoDS_Solid().
+            sol (TopoDS_Solid): The solid to unfold
         """
         fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
         sol_top = TopologyExplorer(sol)
         print()
         print(sol, self.cal_vol(sol))
-        print(sol_top.number_of_faces())
+        print(f"Number of faces: {sol_top.number_of_faces()}")
 
         if sol_top.number_of_faces() < self.nfce:
             self.nfce = 1
-        fce = fce_exp.Current()
-        fce_num = 1
-        while fce_exp.More() and self.nfce > fce_num:
-            fce = fce_exp.Current()
-            fce_num += 1
+        
+        # Select the base face for unfolding
+        base_face = fce_exp.Current()
+        face_count = 1
+        while fce_exp.More() and self.nfce > face_count:
+            base_face = fce_exp.Current()
+            face_count += 1
             fce_exp.Next()
-        self.face_init(fce)
-
-        fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
-        while fce_exp.More():
-            face = fce_exp.Current()
-            if self.fix_face.IsEqual(face):
-                pass
-            else:
-                self.face_expand(face)
-            fce_exp.Next()
-            self.fix_face_n += 1
+        
+        print(f"Using face {self.nfce} as base for unfolding")
+        
+        # Unfold all adjacent faces to the same plane as the base face
+        unfolded_faces = self.unfold_adjacent_faces(base_face, sol)
+        
+        print(f"Successfully unfolded {len(unfolded_faces)} faces")
+        return unfolded_faces
 
     def prop_solids(self):
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
         while sol_exp.More():
             self.prop_soild(sol_exp.Current())
             sol_exp.Next()
+
+    def test_unfold_cube(self):
+        """Test the unfolding functionality with a simple cube"""
+        # Create a simple cube for testing
+        test_cube = make_box(50, 50, 50)
+        
+        # Get the first face as the base
+        face_exp = TopExp_Explorer(test_cube, TopAbs_FACE)
+        base_face = face_exp.Current()
+        
+        print("Testing cube unfolding...")
+        unfolded_faces = self.unfold_adjacent_faces(base_face, test_cube)
+        
+        # Display the original cube
+        self.display.DisplayShape(test_cube, color="BLACK", transparency=0.8)
+        
+        return unfolded_faces
+
+    def extract_and_unfold_polyhedron(self, solid_index=0, face_index=0):
+        """Extract a polyhedron from split solids and unfold it from a specified face.
+        
+        Args:
+            solid_index (int): Index of the solid to extract (0-based)
+            face_index (int): Index of the face to use as base for unfolding (0-based)
+        
+        Returns:
+            tuple: (extracted_solid, base_face, unfolded_faces)
+        """
+        print(f"=== Extracting and Unfolding Polyhedron ===")
+        
+        # Get all split solids
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        solids = []
+        
+        while sol_exp.More():
+            solids.append(sol_exp.Current())
+            sol_exp.Next()
+        
+        if not solids:
+            print("No split solids found!")
+            return None, None, []
+        
+        print(f"Found {len(solids)} split solids")
+        
+        # Select the specified solid
+        if solid_index >= len(solids):
+            solid_index = 0
+            print(f"Solid index {solid_index} out of range, using solid 0")
+        
+        selected_solid = solids[solid_index]
+        print(f"Selected solid {solid_index}")
+        print(f"Volume: {self.cal_vol(selected_solid):.2f}")
+        
+        # Get all faces of the selected solid
+        face_exp = TopExp_Explorer(selected_solid, TopAbs_FACE)
+        faces = []
+        
+        while face_exp.More():
+            faces.append(face_exp.Current())
+            face_exp.Next()
+        
+        print(f"Solid has {len(faces)} faces")
+        
+        # Select the specified face as base
+        if face_index >= len(faces):
+            face_index = 0
+            print(f"Face index {face_index} out of range, using face 0")
+        
+        base_face = faces[face_index]
+        print(f"Using face {face_index} as base for unfolding")
+        
+        # Display the selected solid
+        self.display.DisplayShape(selected_solid, color="LIGHTGRAY", transparency=0.7)
+        
+        # Unfold adjacent faces
+        unfolded_faces = self.unfold_from_base_face(base_face, selected_solid)
+        
+        return selected_solid, base_face, unfolded_faces
+
+    def unfold_from_base_face(self, base_face, solid):
+        """Unfold all adjacent faces from a base face using the existing face_expand logic.
+        
+        Args:
+            base_face (TopoDS_Face): The base face for unfolding
+            solid (TopoDS_Solid): The solid containing the faces
+            
+        Returns:
+            list: List of unfolded faces
+        """
+        print(f"--- Starting Face Unfolding ---")
+        
+        # Initialize the base face (using existing logic)
+        self.face_init(base_face)
+        
+        # Get all faces of the solid
+        face_exp = TopExp_Explorer(solid, TopAbs_FACE)
+        faces = []
+        
+        while face_exp.More():
+            faces.append(face_exp.Current())
+            face_exp.Next()
+        
+        print(f"Processing {len(faces)} faces for unfolding")
+        
+        # Process each face (except the base face)
+        unfolded_count = 0
+        for face in faces:
+            if not self.fix_face.IsEqual(face):
+                print(f"Unfolding face {unfolded_count + 1}")
+                try:
+                    self.face_expand(face)
+                    unfolded_count += 1
+                except Exception as e:
+                    print(f"Failed to unfold face: {e}")
+                    
+            self.fix_face_n += 1
+        
+        print(f"Successfully processed {unfolded_count} faces")
+        return unfolded_count
+
+    def demo_split_and_unfold(self, num_splits=3, seed=42, solid_index=0, face_index=0):
+        """Demonstration function: Split box, extract polyhedron, and unfold.
+        
+        Args:
+            num_splits (int): Number of random splitting planes
+            seed (int): Random seed for reproducible results
+            solid_index (int): Index of solid to unfold
+            face_index (int): Index of face to use as base
+        """
+        print("="*60)
+        print("DEMONSTRATION: Box Split → Polyhedron Extract → Face Unfold")
+        print("="*60)
+        
+        # Step 1: Split the base box
+        print(f"Step 1: Splitting base box with {num_splits} random planes")
+        self.split_run(num_splits, seed)
+        
+        # Show split result
+        print("Displaying split result...")
+        colors = ["BLUE", "RED", "GREEN", "YELLOW", "CYAN", "MAGENTA"]
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        solid_count = 0
+        
+        while sol_exp.More():
+            color = colors[solid_count % len(colors)]
+            self.display.DisplayShape(sol_exp.Current(), 
+                                    color=color, 
+                                    transparency=0.8)
+            solid_count += 1
+            sol_exp.Next()
+        
+        print(f"Created {solid_count} split solids")
+        
+        # Step 2: Extract and unfold specified polyhedron
+        print(f"\nStep 2: Extracting solid {solid_index} and unfolding from face {face_index}")
+        
+        try:
+            solid, base_face, result = self.extract_and_unfold_polyhedron(solid_index, face_index)
+            
+            if solid:
+                print(f"✓ Successfully unfolded polyhedron")
+                print(f"  Volume: {self.cal_vol(solid):.2f}")
+                print(f"  Base face area: {self.cal_are(base_face):.2f}")
+                
+                # Show the result
+                print("\nDisplaying unfolded result...")
+                self.ShowOCC()
+                
+                return solid, base_face, result
+            else:
+                print("✗ Failed to extract polyhedron")
+                return None, None, []
+                
+        except Exception as e:
+            print(f"✗ Error during unfolding: {e}")
+            import traceback
+            traceback.print_exc()
+            return None, None, []
 
     def show_split_solid(self):
         colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
@@ -384,24 +651,13 @@ class CovExp (dispocc):
 
 
 if __name__ == "__main__":
+    # 簡単なテスト
     obj = CovExp(touch=False)
-    obj.split_run(4)
-    # obj.prop_solids()
-
-    sol_exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
-    print(sol_exp.Depth())
-    sol_exp.Next()
-    sol_exp.Next()
-    sol_exp.Next()
-    obj.prop_soild(sol_exp.Current())
-
-    obj.display.DisplayShape(obj.splitter.Shape(),
-                             color="BLUE", transparency=0.9)
-    obj.display.DisplayShape(sol_exp.Current(), transparency=0.5)
-    obj.ShowOCC()
-
-    # print(obj.cal_vol())
-    # obj.prop_soild(obj.base)
-
-    # sobj.fileout()
-    # obj.ShowDisplay()
+    
+    # カスタムパラメータ
+    obj.demo_split_and_unfold(
+        num_splits=5,    # 5つの平面で分割
+        seed=123,        # 再現可能な結果
+        solid_index=1,   # 2番目の立体を選択
+        face_index=2     # 3番目の面を基準に展開
+    )
