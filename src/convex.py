@@ -11,9 +11,7 @@ from OCC.Core.Geom import Geom_Circle, Geom_TrimmedCurve
 from OCC.Core.BRep import BRep_Builder, BRep_Tool
 from OCC.Core.BRepAdaptor import BRepAdaptor_Curve, BRepAdaptor_Surface
 from OCC.Core.BRepLProp import BRepLProp_CLProps
-from OCC.Core.BRepGProp import brepgprop_SurfaceProperties
-from OCC.Core.BRepGProp import brepgprop_VolumeProperties
-from OCC.Core.BRepGProp import brepgprop_LinearProperties
+from OCC.Core.BRepGProp import brepgprop
 from OCC.Core.BRepFilletAPI import BRepFilletAPI_MakeFillet
 from OCC.Core.BRepCheck import BRepCheck_Analyzer
 from OCC.Core.BOPAlgo import BOPAlgo_Splitter
@@ -122,15 +120,15 @@ class CovExp(dispocc):
         self.splitter.Perform()
 
     def cal_len(self, shp=TopoDS_Shape()):
-        brepgprop_LinearProperties(shp, self.prop)
+        brepgprop.LinearProperties(shp, self.prop)
         return self.prop.Mass()
 
     def cal_are(self, shp=TopoDS_Shape()):
-        brepgprop_SurfaceProperties(shp, self.prop)
+        brepgprop.SurfaceProperties(shp, self.prop)
         return self.prop.Mass()
 
     def cal_vol(self, shp=TopoDS_Shape()):
-        brepgprop_VolumeProperties(shp, self.prop)
+        brepgprop.VolumeProperties(shp, self.prop)
         return self.prop.Mass()
 
     def prop_edge(self, edge=TopoDS_Edge()):
@@ -429,6 +427,71 @@ class CovExp(dispocc):
         self.display.DisplayShape(self.fix_face, color="RED")
         self.display.DisplayShape(self.fix_axis.Location())
 
+    def face_expand(self, face=TopoDS_Face()):
+        """Expand face by rotating around common edge with base face.
+
+        Args:
+            face (TopoDS_Face): Face to be expanded
+        """
+        try:
+            # Get plane of the face
+            plan = self.pln_on_face(face)
+            plan_axs = plan.Position()
+
+            # Find common edges between this face and the base face
+            find_edge = LocOpe_FindEdges(self.fix_face, face)
+            find_edge.InitIterator()
+            edge_n = 0
+
+            while find_edge.More():
+                i = (edge_n + self.fix_face_n) % len(self.colors)
+
+                # Get common edge
+                edge = find_edge.EdgeTo()
+                line = self.prop_edge(edge)
+
+                # Get edge curve information
+                e_curve, u0, u1 = BRep_Tool.Curve(edge)
+                vz = gp_Vec(0, 0, 1)  # tangent vector
+                p0 = gp_Pnt(0, 0, 1)  # midpoint
+                e_curve.D1((u0 + u1) / 2, p0, vz)
+                e_vec = gp_Vec(e_curve.Value(u0), e_curve.Value(u1)).Normalized()
+
+                # Display edge and label
+                txt = f"Face{self.fix_face_n}-Edge{edge_n}"
+                self.display.DisplayShape(edge, color=self.colors[i])
+                self.context.append(self.display.DisplayMessage(p0, txt))
+
+                # Create rotation axis
+                line_axs = line.Position()
+                line_axs.SetLocation(p0)
+
+                # Calculate rotation direction
+                px = gp_Vec(p0, self.fix_axis.Location()).Normalized()
+                py = gp_Vec(p0, plan_axs.Location()).Normalized()
+                vy = vz.Crossed(px)
+                vx = vz.Crossed(vy)
+                if px.Dot(vx) > 0:
+                    vx.Reverse()
+
+                line_axs = gp_Ax3(p0, vec_to_dir(vz), vec_to_dir(vx))
+                line_flg = py.Dot(dir_to_vec(line_axs.YDirection()))
+
+                print(f"Face: {self.fix_face_n}, Edge: {edge_n}")
+                print(f"Edge length: {self.cal_len(edge):.2f}")
+                print(f"Face area: {self.cal_are(face):.2f}")
+                print(f"Direction flag: {line_flg:.3f}")
+
+                # Rotate the face
+                self.face_rotate(face, line_axs, flg=line_flg)
+
+                find_edge.Next()
+                edge_n += 1
+
+        except Exception as e:
+            print(f"Error in face_expand: {e}")
+            raise
+
     def prop_fillet(self, sol=TopoDS_Solid()):
         self.fill = BRepFilletAPI_MakeFillet(sol)
         fce_exp = TopExp_Explorer(sol, TopAbs_FACE)
@@ -502,8 +565,8 @@ class CovExp(dispocc):
 
         return unfolded_faces
 
-    def extract_and_unfold_polyhedron(self, solid_index=0, face_index=0):
-        """Extract a polyhedron from split solids and unfold it from a specified face.
+    def extract_and_unfold_clean(self, solid_index=0, face_index=0):
+        """Extract a polyhedron and unfold it with clean visualization (only show selected solid and unfolded faces).
 
         Args:
             solid_index (int): Index of the solid to extract (0-based)
@@ -512,7 +575,10 @@ class CovExp(dispocc):
         Returns:
             tuple: (extracted_solid, base_face, unfolded_faces)
         """
-        print(f"=== Extracting and Unfolding Polyhedron ===")
+        print(f"=== Clean Extraction and Unfolding ===")
+
+        # Clear any existing display
+        self.display.EraseAll()
 
         # Get all split solids
         sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
@@ -531,7 +597,7 @@ class CovExp(dispocc):
         # Select the specified solid
         if solid_index >= len(solids):
             solid_index = 0
-            print(f"Solid index {solid_index} out of range, using solid 0")
+            print(f"Solid index out of range, using solid 0")
 
         selected_solid = solids[solid_index]
         print(f"Selected solid {solid_index}")
@@ -550,18 +616,77 @@ class CovExp(dispocc):
         # Select the specified face as base
         if face_index >= len(faces):
             face_index = 0
-            print(f"Face index {face_index} out of range, using face 0")
+            print(f"Face index out of range, using face 0")
 
         base_face = faces[face_index]
         print(f"Using face {face_index} as base for unfolding")
 
-        # Display the selected solid
-        self.display.DisplayShape(selected_solid, color="LIGHTGRAY", transparency=0.7)
+        # Display ONLY the selected solid (semi-transparent)
+        self.display.DisplayShape(selected_solid, color="LIGHTGRAY", transparency=0.6)
 
-        # Unfold adjacent faces
+        # Unfold adjacent faces (this will display the unfolded faces)
         unfolded_faces = self.unfold_from_base_face(base_face, selected_solid)
 
         return selected_solid, base_face, unfolded_faces
+
+    def demo_split_and_unfold_clean(
+        self, num_splits=3, seed=42, solid_index=0, face_index=0
+    ):
+        """Clean demonstration: Split box, extract polyhedron, and unfold with minimal visualization.
+
+        Args:
+            num_splits (int): Number of random splitting planes
+            seed (int): Random seed for reproducible results
+            solid_index (int): Index of solid to unfold
+            face_index (int): Index of face to use as base
+        """
+        print("=" * 60)
+        print("CLEAN DEMO: Box Split → Polyhedron Extract → Face Unfold")
+        print("=" * 60)
+
+        # Step 1: Split the base box (don't display all solids)
+        print(f"Step 1: Splitting base box with {num_splits} random planes")
+        self.split_run(num_splits, seed)
+
+        # Count solids but don't display them all
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        solid_count = 0
+        while sol_exp.More():
+            solid_count += 1
+            sol_exp.Next()
+
+        print(f"Created {solid_count} split solids")
+
+        # Step 2: Extract and unfold specified polyhedron with clean display
+        print(
+            f"Step 2: Extracting solid {solid_index} and unfolding from face {face_index}"
+        )
+
+        try:
+            solid, base_face, result = self.extract_and_unfold_clean(
+                solid_index, face_index
+            )
+
+            if solid:
+                print(f"✓ Successfully unfolded polyhedron")
+                print(f"  Volume: {self.cal_vol(solid):.2f}")
+                print(f"  Base face area: {self.cal_are(base_face):.2f}")
+
+                # Show the clean result
+                print("\nDisplaying clean unfolded result...")
+                self.ShowOCC()
+
+                return solid, base_face, result
+            else:
+                print("✗ Failed to extract polyhedron")
+                return None, None, []
+
+        except Exception as e:
+            print(f"✗ Error during unfolding: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return None, None, []
 
     def unfold_from_base_face(self, base_face, solid):
         """Unfold all adjacent faces from a base face using the existing face_expand logic.
@@ -680,13 +805,29 @@ class CovExp(dispocc):
 
 
 if __name__ == "__main__":
-    # 簡単なテスト
+    # シンプルなデモ実行（インタラクティブ要素なし）
+    print("=" * 60)
+    print("POLYHEDRON UNFOLDING DEMONSTRATION")
+    print("=" * 60)
+
     obj = CovExp(touch=False)
 
-    # カスタムパラメータ
-    obj.demo_split_and_unfold(
-        num_splits=5,  # 5つの平面で分割
-        seed=123,  # 再現可能な結果
-        solid_index=1,  # 2番目の立体を選択
-        face_index=2,  # 3番目の面を基準に展開
+    # デフォルトパラメータでクリーンな展開実行
+    print("Running clean unfold demo with default parameters...")
+    solid, base_face, result = obj.demo_split_and_unfold_clean(
+        num_splits=3,  # 3つの平面で分割
+        seed=42,  # 固定シード値
+        solid_index=0,  # 最初の立体を抽出
+        face_index=0,  # 最初の面を基準に展開
     )
+
+    if solid:
+        print(f"\n✓ Demonstration completed successfully!")
+        print(f"Final results:")
+        print(f"  - Polyhedron volume: {obj.cal_vol(solid):.2f}")
+        print(f"  - Base face area: {obj.cal_are(base_face):.2f}")
+        print(f"  - Processed faces: {result}")
+    else:
+        print(f"\n✗ Demonstration failed")
+
+    print("\nDemo completed!")
