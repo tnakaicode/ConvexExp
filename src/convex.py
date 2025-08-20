@@ -72,6 +72,20 @@ def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
     else:
         return np.pi - ref_angle
 
+def calc_unfold_angle(dihedral_angle, sign1, sign2):
+    # 1. 基本回転角度
+    angle = abs(dihedral_angle)
+    # 2. sign1 < 0 の場合は補角
+    if sign1 < 0:
+        angle = math.pi - angle
+    # 3. 回転方向
+    angle = angle * sign2
+    # 4. 出力は±180°以内に正規化
+    if angle > math.pi:
+        angle -= 2 * math.pi
+    if angle < -math.pi:
+        angle += 2 * math.pi
+    return angle
 
 def error_handling_decorator(func):
     @functools.wraps(func)
@@ -240,20 +254,6 @@ class CovExp(dispocc):
     @error_handling_decorator
     def get_face_normal(self, face):
         """Get the normal vector of a face at its center."""
-        surface = BRep_Tool.Surface(face)
-        center = self.get_face_center(face)
-
-        # Project center point onto surface to get UV parameters
-        projector = GeomAPI_ProjectPointOnSurf(center, surface)
-        if projector.NbPoints() > 0:
-            u, v = projector.Parameters(1)
-
-            # Calculate normal at UV parameters
-            props = GeomLProp_SLProps(surface, u, v, 1, 1e-6)
-            if props.IsNormalDefined():
-                return props.Normal()
-
-        # Fallback: use face orientation
         face_adapter = BRepAdaptor_Surface(face)
         return face_adapter.Plane().Axis().Direction()
 
@@ -464,52 +464,29 @@ class CovExp(dispocc):
 
     @error_handling_decorator
     def _calculate_unfold_transform(self, face, common_edge):
-        """Calculate the transformation to unfold a face.
+        # Step 1: Define rotation axis and get edge points
+        rotation_axis = BRepAdaptor_Curve(common_edge).Line().Position()
+        fix_face_axs = BRepAdaptor_Surface(self.fix_face).Plane().Axis()
+        rot_face_axs = BRepAdaptor_Surface(face).Plane().Axis()
 
-        回転方向を自動判定し、fix_faceと重ならない展開を保証する。
-        """
-        # Step 1: Define rotation axis
-        edge_curve, u0, u1 = BRep_Tool.Curve(common_edge)
-        edge_start = edge_curve.Value(u0)
-        edge_end = edge_curve.Value(u1)
-        z_axis = gp_Vec(edge_start, edge_end).Normalized()
-        rotation_axis = gp_Ax1(edge_start, vec_to_dir(z_axis))
+        edge_dir = rotation_axis.Direction()
+        n_face = rot_face_axs.Direction()
+        n_base = fix_face_axs.Direction()
+        x_dir = n_base.Crossed(edge_dir)
 
         # Step 2: Dihedral angle (always positive)
-        dihedral_angle = self._get_dihedral_angle(self.fix_face, face, common_edge)
-        unfold_angle = math.pi - dihedral_angle
-
-        # Step 3: Try both directions, pick the one that aligns normals
-        trsf_pos = gp_Trsf()
-        trsf_pos.SetRotation(rotation_axis, unfold_angle)
-        normal_pos = self.get_face_normal(face.Moved(TopLoc_Location(trsf_pos)))
-
-        trsf_neg = gp_Trsf()
-        trsf_neg.SetRotation(rotation_axis, -unfold_angle)
-        normal_neg = self.get_face_normal(face.Moved(TopLoc_Location(trsf_neg)))
-
-        base_normal = self.get_face_normal(self.fix_face)
-        angle_pos = base_normal.Angle(normal_pos)
-        angle_neg = base_normal.Angle(normal_neg)
-        dot_pos = base_normal.Dot(normal_pos)
-        dot_neg = base_normal.Dot(normal_neg)
-
+        dihedral_angle = n_base.AngleWithRef(n_face, x_dir)
+        dihedral_sign1 = np.sign(fix_face_axs.Direction().Dot(rot_face_axs.Direction()))
+        dihedral_sign2 = np.sign(x_dir.Dot(rot_face_axs.Direction()))
         print(f"  Dihedral angle: {math.degrees(dihedral_angle):.1f}°")
-        print(
-            f"  Try +unfold_angle: {math.degrees(unfold_angle):.1f}°, normal diff: {math.degrees(angle_pos):.1f}°, dot: {dot_pos:.3f}"
-        )
-        print(
-            f"  Try -unfold_angle: {math.degrees(-unfold_angle):.1f}°, normal diff: {math.degrees(angle_neg):.1f}°, dot: {dot_neg:.3f}"
-        )
+        print(f"  Dihedral sign1: {dihedral_sign1}")
+        print(f"  Dihedral sign2: {dihedral_sign2}")
 
-        # 優先: 法線の向きがfix_faceと同じ（dot>0）かつ角度が小さい方
-        if dot_pos > 0 and (angle_pos <= angle_neg or dot_neg <= 0):
-            chosen_angle = unfold_angle
-            print(f"  Chosen: +unfold_angle (dot={dot_pos:.3f})")
-        else:
-            chosen_angle = -unfold_angle
-            print(f"  Chosen: -unfold_angle (dot={dot_neg:.3f})")
+        # 優先: 必ず外側展開（fix_faceの法線方向側）になるよう符号を決定
+        chosen_angle = calc_unfold_angle(dihedral_angle, dihedral_sign1, dihedral_sign2)
+        print(f"  Chosen: {math.degrees(chosen_angle):.1f}° (dihedral_angle={math.degrees(dihedral_angle):.1f}°, sign1={dihedral_sign1}, sign2={dihedral_sign2})")
 
+        # 回転変換
         transform = gp_Trsf()
         transform.SetRotation(rotation_axis, chosen_angle)
         return transform
@@ -651,6 +628,6 @@ if __name__ == "__main__":
 
     # Unfold from face 0
     print("Unfolding all faces adjacent to face 0...")
-    obj.unfold_adjacent_faces(fix_solid, base_face_index=1)
+    obj.unfold_adjacent_faces(fix_solid, base_face_index=2)
 
     obj.ShowOCC()
