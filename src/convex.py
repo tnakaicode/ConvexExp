@@ -72,20 +72,14 @@ def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
     else:
         return np.pi - ref_angle
 
+
 def calc_unfold_angle(dihedral_angle, sign1, sign2):
-    # 1. 基本回転角度
-    angle = abs(dihedral_angle)
-    # 2. sign1 < 0 の場合は補角
-    if sign1 < 0:
-        angle = math.pi - angle
-    # 3. 回転方向
-    angle = angle * sign2
-    # 4. 出力は±180°以内に正規化
-    if angle > math.pi:
-        angle -= 2 * math.pi
-    if angle < -math.pi:
-        angle += 2 * math.pi
+    if sign1 == 1:
+        angle = dihedral_angle * sign2
+    else:
+        angle = dihedral_angle * -1
     return angle
+
 
 def error_handling_decorator(func):
     @functools.wraps(func)
@@ -466,29 +460,35 @@ class CovExp(dispocc):
     def _calculate_unfold_transform(self, face, common_edge):
         # Step 1: Define rotation axis and get edge points
         rotation_axis = BRepAdaptor_Curve(common_edge).Line().Position()
-        fix_face_axs = BRepAdaptor_Surface(self.fix_face).Plane().Axis()
-        rot_face_axs = BRepAdaptor_Surface(face).Plane().Axis()
+        fix_face_axs = BRepAdaptor_Surface(self.fix_face).Plane().Position()
+        rot_face_axs = BRepAdaptor_Surface(face).Plane().Position()
 
         edge_dir = rotation_axis.Direction()
         n_face = rot_face_axs.Direction()
+        x_face = rot_face_axs.XDirection()
         n_base = fix_face_axs.Direction()
-        x_dir = n_base.Crossed(edge_dir)
+        x_base = fix_face_axs.XDirection()
+        y_base = fix_face_axs.YDirection()
+        x_dir = edge_dir.Crossed(n_base)
+
+        self.display.DisplayVector(dir_to_vec(x_dir), rotation_axis.Location())
 
         # Step 2: Dihedral angle (always positive)
-        dihedral_angle = n_base.AngleWithRef(n_face, x_dir)
-        dihedral_sign1 = np.sign(fix_face_axs.Direction().Dot(rot_face_axs.Direction()))
-        dihedral_sign2 = np.sign(x_dir.Dot(rot_face_axs.Direction()))
+        dihedral_angle = n_base.AngleWithRef(n_face, n_base)
+        dihedral_sign1 = np.sign(n_base.Dot(n_face))
+        dihedral_sign2 = np.sign(x_dir.Dot(n_face))
+        dihedral_sign3 = np.sign(x_dir.DotCross(x_base, y_base))
         print(f"  Dihedral angle: {math.degrees(dihedral_angle):.1f}°")
         print(f"  Dihedral sign1: {dihedral_sign1}")
         print(f"  Dihedral sign2: {dihedral_sign2}")
+        print(f"  Dihedral sign3: {dihedral_sign3}")
 
         # 優先: 必ず外側展開（fix_faceの法線方向側）になるよう符号を決定
         chosen_angle = calc_unfold_angle(dihedral_angle, dihedral_sign1, dihedral_sign2)
-        print(f"  Chosen: {math.degrees(chosen_angle):.1f}° (dihedral_angle={math.degrees(dihedral_angle):.1f}°, sign1={dihedral_sign1}, sign2={dihedral_sign2})")
 
         # 回転変換
         transform = gp_Trsf()
-        transform.SetRotation(rotation_axis, chosen_angle)
+        transform.SetRotation(rotation_axis, dihedral_angle)
         return transform
 
     def unfold_adjacent_faces(self, fix_solid, base_face_index=0):
