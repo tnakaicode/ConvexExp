@@ -2,12 +2,13 @@ import numpy as np
 import math
 import sys
 import os
+import functools
 
 from OCC.Display.SimpleGui import init_display
-from OCC.Core.gp import gp_Circ, gp_Pnt, gp_Vec, gp_Dir
+from OCC.Core.gp import gp_Pnt, gp_Vec, gp_Dir
 from OCC.Core.gp import gp_Ax1, gp_Ax2, gp_Ax3
-from OCC.Core.gp import gp_Pln, gp_Lin
 from OCC.Core.gp import gp_Trsf
+from OCC.Core.gp import gp_Pln, gp_Lin, gp_Circ
 from OCC.Core.Geom import Geom_Circle, Geom_TrimmedCurve
 from OCC.Core.GeomAPI import GeomAPI_ProjectPointOnSurf
 from OCC.Core.GeomLProp import GeomLProp_SLProps
@@ -31,7 +32,6 @@ from OCC.Core.TopoDS import (
 )
 from OCC.Core.TopAbs import TopAbs_EDGE, TopAbs_SOLID, TopAbs_FACE, TopAbs_VERTEX
 from OCC.Core.TopTools import TopTools_ListOfShape
-from OCC.Core.GProp import GProp_GProps
 from OCC.Core.Prs3d import Prs3d_DimensionAspect
 from OCC.Core.PrsDim import PrsDim_AngleDimension
 from OCC.Core.Quantity import Quantity_Color, Quantity_NOC_RED1, Quantity_NOC_BLACK
@@ -71,6 +71,21 @@ def get_axs_deg(ax0=gp_Ax3(), ax1=gp_Ax3(), ref=gp_Dir()):
         return org_angle
     else:
         return np.pi - ref_angle
+
+
+def error_handling_decorator(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print(f"Error in {func.__name__}: {e}")
+            import traceback
+
+            traceback.print_exc()
+            return None
+
+    return wrapper
 
 
 class CovExp(dispocc):
@@ -174,114 +189,6 @@ class CovExp(dispocc):
         face_pln.SetLocation(face_pnt)
         return face_pln
 
-    def face_fillet(self, face=TopoDS_Face()):
-        plan = self.pln_on_face(face)
-        find_edge = LocOpe_FindEdges(self.fix_face, face)
-        find_edge.InitIterator()
-        edge_n = 0
-
-        edge = find_edge.EdgeTo()
-        self.display.DisplayShape(edge, color="BLUE1")
-        self.fill.Add(10, edge)
-        self.fill.Build()
-        self.display.DisplayShape(self.fill.Shape(), transparency=0.8)
-        self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
-
-    def get_face_center(self, face):
-        """Get the center point of a face."""
-        try:
-            face_properties = GProp_GProps()
-            brepgprop.SurfaceProperties(face, face_properties)
-            center = face_properties.CentreOfMass()
-            return center
-        except Exception as e:
-            print(f"Error getting face center: {e}")
-            return gp_Pnt(0, 0, 0)
-
-    def get_face_normal(self, face):
-        """Get the normal vector of a face at its center."""
-        try:
-            surface = BRep_Tool.Surface(face)
-            center = self.get_face_center(face)
-
-            # Project center point onto surface to get UV parameters
-            projector = GeomAPI_ProjectPointOnSurf(center, surface)
-            if projector.NbPoints() > 0:
-                u, v = projector.Parameters(1)
-
-                # Calculate normal at UV parameters
-                props = GeomLProp_SLProps(surface, u, v, 1, 1e-6)
-                if props.IsNormalDefined():
-                    return props.Normal()
-
-            # Fallback: use face orientation
-            face_adapter = BRepAdaptor_Surface(face)
-            return face_adapter.Plane().Axis().Direction()
-
-        except Exception as e:
-            print(f"Error getting face normal: {e}")
-            return gp_Dir(0, 0, 1)
-
-    def get_face_area(self, face):
-        """Get the area of a face."""
-        try:
-            face_properties = GProp_GProps()
-            brepgprop.SurfaceProperties(face, face_properties)
-            return face_properties.Mass()
-        except Exception as e:
-            print(f"Error getting face area: {e}")
-            return 0.0
-
-    def _get_dihedral_angle(self, face1, face2, common_edge):
-        """Calculate dihedral angle between two faces along common edge."""
-        try:
-            # Get face normals
-            normal1 = self.get_face_normal(face1)
-            normal2 = self.get_face_normal(face2)
-
-            # Calculate angle between normals
-            angle = normal1.Angle(normal2)
-
-            # Return the angle (already between 0 and π)
-            return angle
-
-        except Exception as e:
-            print(f"Error calculating dihedral angle: {e}")
-            return math.pi / 2  # Default to 90 degrees
-
-    def _get_split_solids(self):
-        """Get all solids from the splitter result."""
-        solids = []
-        try:
-            sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
-            while sol_exp.More():
-                solids.append(sol_exp.Current())
-                sol_exp.Next()
-        except Exception as e:
-            print(f"Error getting split solids: {e}")
-        return solids
-
-        print(f"Face {face_index}: Rotation angle = {np.rad2deg(angle):.1f}°")
-
-        # Create transformation
-        transform = gp_Trsf()
-        transform.SetRotation(rotation_axis, angle)
-
-        # Apply transformation
-        location = TopLoc_Location(transform)
-        unfolded_face = face.Moved(location)
-
-        # Display rotation information
-        self.display.DisplayShape(rotation_edge, color="GREEN")
-        self.display.DisplayShape(edge_midpoint)
-        self.context.append(
-            self.display.DisplayMessage(
-                edge_midpoint, f"Face{face_index}: {np.rad2deg(angle):.1f}°"
-            )
-        )
-
-        return unfolded_face
-
     def face_init(self, face=TopoDS_Face()):
         self.fix_face = face
         self.fix_plan = self.pln_on_face(self.fix_face)
@@ -309,6 +216,78 @@ class CovExp(dispocc):
             f"  Normal: ({self.fix_axis.Direction().X():.3f}, {self.fix_axis.Direction().Y():.3f}, {self.fix_axis.Direction().Z():.3f})"
         )
 
+    def face_fillet(self, face=TopoDS_Face()):
+        plan = self.pln_on_face(face)
+        find_edge = LocOpe_FindEdges(self.fix_face, face)
+        find_edge.InitIterator()
+        edge_n = 0
+
+        edge = find_edge.EdgeTo()
+        self.display.DisplayShape(edge, color="BLUE1")
+        self.fill.Add(10, edge)
+        self.fill.Build()
+        self.display.DisplayShape(self.fill.Shape(), transparency=0.8)
+        self.export_stp(self.fill.Shape(), self.tempname + "_fillet.stp")
+
+    @error_handling_decorator
+    def get_face_center(self, face):
+        """Get the center point of a face."""
+        face_properties = GProp_GProps()
+        brepgprop.SurfaceProperties(face, face_properties)
+        center = face_properties.CentreOfMass()
+        return center
+
+    @error_handling_decorator
+    def get_face_normal(self, face):
+        """Get the normal vector of a face at its center."""
+        surface = BRep_Tool.Surface(face)
+        center = self.get_face_center(face)
+
+        # Project center point onto surface to get UV parameters
+        projector = GeomAPI_ProjectPointOnSurf(center, surface)
+        if projector.NbPoints() > 0:
+            u, v = projector.Parameters(1)
+
+            # Calculate normal at UV parameters
+            props = GeomLProp_SLProps(surface, u, v, 1, 1e-6)
+            if props.IsNormalDefined():
+                return props.Normal()
+
+        # Fallback: use face orientation
+        face_adapter = BRepAdaptor_Surface(face)
+        return face_adapter.Plane().Axis().Direction()
+
+    @error_handling_decorator
+    def get_face_area(self, face):
+        """Get the area of a face."""
+        face_properties = GProp_GProps()
+        brepgprop.SurfaceProperties(face, face_properties)
+        return face_properties.Mass()
+
+    @error_handling_decorator
+    def _get_dihedral_angle(self, face1, face2, common_edge):
+        """Calculate dihedral angle between two faces along common edge."""
+        # Get face normals
+        normal1 = self.get_face_normal(face1)
+        normal2 = self.get_face_normal(face2)
+
+        # Calculate angle between normals
+        angle = normal1.Angle(normal2)
+
+        # Return the angle (already between 0 and π)
+        return angle
+
+    @error_handling_decorator
+    def _get_split_solids(self):
+        """Get all solids from the splitter result."""
+        solids = []
+        sol_exp = TopExp_Explorer(self.splitter.Shape(), TopAbs_SOLID)
+        while sol_exp.More():
+            solids.append(sol_exp.Current())
+            sol_exp.Next()
+        return solids
+
+    @error_handling_decorator
     def face_expand(self, face=TopoDS_Face()):
         """Expand face by rotating around common edge with base face.
         Simplified approach with better error handling.
@@ -316,62 +295,53 @@ class CovExp(dispocc):
         Args:
             face (TopoDS_Face): Face to be expanded
         """
-        try:
-            # Find common edges between this face and the base face
-            find_edge = LocOpe_FindEdges(self.fix_face, face)
-            find_edge.InitIterator()
-            edge_n = 0
+        # Find common edges between this face and the base face
+        find_edge = LocOpe_FindEdges(self.fix_face, face)
+        find_edge.InitIterator()
+        edge_n = 0
 
-            while find_edge.More():
-                # Get common edge
-                edge = find_edge.EdgeTo()
+        while find_edge.More():
+            # Get common edge
+            edge = find_edge.EdgeTo()
 
-                # Get edge curve information
-                e_curve, u0, u1 = BRep_Tool.Curve(edge)
-                edge_start = e_curve.Value(u0)
-                edge_end = e_curve.Value(u1)
-                edge_midpoint = gp_Pnt(
-                    (edge_start.X() + edge_end.X()) / 2,
-                    (edge_start.Y() + edge_end.Y()) / 2,
-                    (edge_start.Z() + edge_end.Z()) / 2,
-                )
+            # Get edge curve information
+            e_curve, u0, u1 = BRep_Tool.Curve(edge)
+            edge_start = e_curve.Value(u0)
+            edge_end = e_curve.Value(u1)
+            edge_midpoint = gp_Pnt(
+                (edge_start.X() + edge_end.X()) / 2,
+                (edge_start.Y() + edge_end.Y()) / 2,
+                (edge_start.Z() + edge_end.Z()) / 2,
+            )
 
-                # Calculate edge direction vector
-                edge_vec = gp_Vec(edge_start, edge_end)
-                if edge_vec.Magnitude() < 1e-6:
-                    print(f"Warning: degenerate edge found")
-                    find_edge.Next()
-                    continue
-
-                edge_direction = edge_vec.Normalized()
-
-                # Display edge and label
-                color_idx = edge_n % len(self.colors)
-                self.display.DisplayShape(edge, color=self.colors[color_idx])
-                edge_label = f"E{edge_n}"
-                self.context.append(
-                    self.display.DisplayMessage(edge_midpoint, edge_label)
-                )
-
-                # Create simple rotation axis
-                rotation_axis = gp_Ax3(edge_midpoint, vec_to_dir(edge_direction))
-
-                print(f"Edge {edge_n}: length={self.cal_len(edge):.2f}")
-
-                # Rotate the face around this edge
-                self.face_rotate(face, rotation_axis, flg=1)
-
+            # Calculate edge direction vector
+            edge_vec = gp_Vec(edge_start, edge_end)
+            if edge_vec.Magnitude() < 1e-6:
+                print(f"Warning: degenerate edge found")
                 find_edge.Next()
-                edge_n += 1
+                continue
 
-            if edge_n == 0:
-                print(f"Warning: No common edges found for face {self.fix_face_n}")
+            edge_direction = edge_vec.Normalized()
 
-        except Exception as e:
-            print(f"Error in face_expand: {e}")
-            import traceback
+            # Display edge and label
+            color_idx = edge_n % len(self.colors)
+            self.display.DisplayShape(edge, color=self.colors[color_idx])
+            edge_label = f"E{edge_n}"
+            self.context.append(self.display.DisplayMessage(edge_midpoint, edge_label))
 
-            traceback.print_exc()
+            # Create simple rotation axis
+            rotation_axis = gp_Ax3(edge_midpoint, vec_to_dir(edge_direction))
+
+            print(f"Edge {edge_n}: length={self.cal_len(edge):.2f}")
+
+            # Rotate the face around this edge
+            self.face_rotate(face, rotation_axis, flg=1)
+
+            find_edge.Next()
+            edge_n += 1
+
+        if edge_n == 0:
+            print(f"Warning: No common edges found for face {self.fix_face_n}")
 
     def prop_fillet(self, sol=TopoDS_Solid()):
         self.fill = BRepFilletAPI_MakeFillet(sol)
@@ -470,35 +440,33 @@ class CovExp(dispocc):
                 if edge1.IsEqual(edge2):
                     return edge1
 
+    @error_handling_decorator
     def _unfold_single_face(self, face, common_edge, display_idx, original_idx):
         """Unfold a single face around its common edge with the base face."""
-        try:
-            print(f"Unfolding face {original_idx} (adjacent #{display_idx + 1})")
+        print(f"Unfolding face {original_idx} (adjacent #{display_idx + 1})")
 
-            # Display original face
-            self.display.DisplayShape(face, color="LIGHTGRAY", transparency=0.8)
+        # Display original face
+        self.display.DisplayShape(face, color="LIGHTGRAY", transparency=0.8)
 
-            # Display common edge (rotation axis)
-            self.display.DisplayShape(common_edge, color="GREEN", linewidth=3)
+        # Display common edge (rotation axis)
+        self.display.DisplayShape(common_edge, color="GREEN", linewidth=3)
 
-            # Calculate unfold transformation
-            transform = self._calculate_unfold_transform(face, common_edge)
+        # Calculate unfold transformation
+        transform = self._calculate_unfold_transform(face, common_edge)
 
-            if transform:
-                # Apply transformation
-                unfolded_face = face.Moved(TopLoc_Location(transform))
+        if transform:
+            # Apply transformation
+            unfolded_face = face.Moved(TopLoc_Location(transform))
 
-                # Display unfolded face
-                color = self.colors[display_idx % len(self.colors)]
-                self.display.DisplayShape(unfolded_face, color=color, transparency=0.5)
+            # Display unfolded face
+            color = self.colors[display_idx % len(self.colors)]
+            self.display.DisplayShape(unfolded_face, color=color, transparency=0.5)
 
-                print(f"✓ Successfully unfolded face {original_idx}")
-            else:
-                print(f"✗ Failed to calculate transform for face {original_idx}")
+            print(f"✓ Successfully unfolded face {original_idx}")
+        else:
+            print(f"✗ Failed to calculate transform for face {original_idx}")
 
-        except Exception as e:
-            print(f"Error unfolding face {original_idx}: {e}")
-
+    @error_handling_decorator
     def _calculate_unfold_transform(self, face, common_edge):
         """Calculate the transformation to unfold a face.
 
@@ -520,108 +488,101 @@ class CovExp(dispocc):
 
         Returns the proper transformation for unfolding without overlap.
         """
-        try:
-            # Step 1: Define intuitive rotation axis coordinate system
-            edge_curve, u0, u1 = BRep_Tool.Curve(common_edge)
-            edge_start = edge_curve.Value(u0)
-            edge_end = edge_curve.Value(u1)
+        # Step 1: Define intuitive rotation axis coordinate system
+        edge_curve, u0, u1 = BRep_Tool.Curve(common_edge)
+        edge_start = edge_curve.Value(u0)
+        edge_end = edge_curve.Value(u1)
 
-            # Z軸: 回転軸方向（共通エッジ方向）
-            z_axis = gp_Vec(edge_start, edge_end).Normalized()
+        # Z軸: 回転軸方向（共通エッジ方向）
+        z_axis = gp_Vec(edge_start, edge_end).Normalized()
 
-            # Y軸: 基準面の法線方向（直感的な「上」方向）
-            base_normal = self.get_face_normal(self.fix_face)
-            y_axis = gp_Vec(base_normal).Normalized()
+        # Y軸: 基準面の法線方向（直感的な「上」方向）
+        base_normal = self.get_face_normal(self.fix_face)
+        y_axis = gp_Vec(base_normal).Normalized()
 
-            # X軸: 右手系で自動決定（Z × Y）
-            x_axis = z_axis.Crossed(y_axis).Normalized()
+        # X軸: 右手系で自動決定（Z × Y）
+        x_axis = z_axis.Crossed(y_axis).Normalized()
 
-            # 回転軸座標系を定義
-            rotation_axis = gp_Ax1(edge_start, vec_to_dir(z_axis))
-            coord_system = gp_Ax3(edge_start, vec_to_dir(z_axis), vec_to_dir(x_axis))
+        # 回転軸座標系を定義
+        rotation_axis = gp_Ax1(edge_start, vec_to_dir(z_axis))
+        coord_system = gp_Ax3(edge_start, vec_to_dir(z_axis), vec_to_dir(x_axis))
 
-            print(f"  Intuitive coordinate system defined:")
-            print(
-                f"    Z (rotation): ({z_axis.X():.3f}, {z_axis.Y():.3f}, {z_axis.Z():.3f})"
-            )
-            print(
-                f"    Y (base normal): ({y_axis.X():.3f}, {y_axis.Y():.3f}, {y_axis.Z():.3f})"
-            )
-            print(
-                f"    X (Z×Y): ({x_axis.X():.3f}, {x_axis.Y():.3f}, {x_axis.Z():.3f})"
-            )
+        print(f"  Intuitive coordinate system defined:")
+        print(
+            f"    Z (rotation): ({z_axis.X():.3f}, {z_axis.Y():.3f}, {z_axis.Z():.3f})"
+        )
+        print(
+            f"    Y (base normal): ({y_axis.X():.3f}, {y_axis.Y():.3f}, {y_axis.Z():.3f})"
+        )
+        print(f"    X (Z×Y): ({x_axis.X():.3f}, {x_axis.Y():.3f}, {x_axis.Z():.3f})")
 
-            # Step 2: 展開面の法線と位置関係を分析
-            face_normal = self.get_face_normal(face)
-            face_center = self.get_face_center(face)
-            base_center = self.get_face_center(self.fix_face)
+        # Step 2: 展開面の法線と位置関係を分析
+        face_normal = self.get_face_normal(face)
+        face_center = self.get_face_center(face)
+        base_center = self.get_face_center(self.fix_face)
 
-            # 展開面が回転軸に対して左側か右側かを判定（新座標系）
-            edge_to_face = gp_Vec(edge_start, face_center)
-            cross_product = z_axis.Crossed(edge_to_face)
-            face_side = cross_product.Dot(y_axis)  # Y軸（基準面法線）との内積で判定
+        # 展開面が回転軸に対して左側か右側かを判定（新座標系）
+        edge_to_face = gp_Vec(edge_start, face_center)
+        cross_product = z_axis.Crossed(edge_to_face)
+        face_side = cross_product.Dot(y_axis)  # Y軸（基準面法線）との内積で判定
 
-            print(f"  Face position analysis (intuitive coords):")
-            print(
-                f"    Face normal: ({face_normal.X():.3f}, {face_normal.Y():.3f}, {face_normal.Z():.3f})"
-            )
-            print(
-                f"    Face side: {'RIGHT' if face_side > 0 else 'LEFT'} (value: {face_side:.3f})"
-            )
+        print(f"  Face position analysis (intuitive coords):")
+        print(
+            f"    Face normal: ({face_normal.X():.3f}, {face_normal.Y():.3f}, {face_normal.Z():.3f})"
+        )
+        print(
+            f"    Face side: {'RIGHT' if face_side > 0 else 'LEFT'} (value: {face_side:.3f})"
+        )
 
-            # Step 3: 二面角を計算
-            dihedral_angle = self._get_dihedral_angle(self.fix_face, face, common_edge)
-            is_acute = dihedral_angle < math.pi / 2
+        # Step 3: 二面角を計算
+        dihedral_angle = self._get_dihedral_angle(self.fix_face, face, common_edge)
+        is_acute = dihedral_angle < math.pi / 2
 
-            print(f"  Angle analysis:")
-            print(f"    Dihedral angle: {math.degrees(dihedral_angle):.1f}°")
-            print(f"    Angle type: {'ACUTE' if is_acute else 'OBTUSE'}")
+        print(f"  Angle analysis:")
+        print(f"    Dihedral angle: {math.degrees(dihedral_angle):.1f}°")
+        print(f"    Angle type: {'ACUTE' if is_acute else 'OBTUSE'}")
 
-            # Step 4: 展開角度と方向を決定（直感的座標系版）
-            """
-            展開判定ロジック（Y軸=基準面法線版）:
-            
-            Case 1: 鋭角 + 面が左側
-            → 180° - 二面角で展開（外側に開く）
-            
-            Case 2: 鋭角 + 面が右側  
-            → 180° - 二面角で展開（外側に開く）
-            
-            Case 3: 鈍角 + 面が左側
-            → 二面角の補角で展開（内側に折り込む）
-            
-            Case 4: 鈍角 + 面が右側
-            → 二面角の補角で展開（内側に折り込む）
-            
-            重要: 面の重複を避けるため、必ず外側展開を選択
-            """
+        # Step 4: 展開角度と方向を決定（直感的座標系版）
+        """
+        展開判定ロジック（Y軸=基準面法線版）:
+        
+        Case 1: 鋭角 + 面が左側
+        → 180° - 二面角で展開（外側に開く）
+        
+        Case 2: 鋭角 + 面が右側  
+        → 180° - 二面角で展開（外側に開く）
+        
+        Case 3: 鈍角 + 面が左側
+        → 二面角の補角で展開（内側に折り込む）
+        
+        Case 4: 鈍角 + 面が右側
+        → 二面角の補角で展開（内側に折り込む）
+        
+        重要: 面の重複を避けるため、必ず外側展開を選択
+        """
 
-            if is_acute:
-                # 鋭角の場合: 外側に開く（180° - 角度）
-                unfold_angle = math.pi - dihedral_angle
-                rotation_direction = "OUTWARD"
-                if face_side < 0:  # 左側の場合
-                    unfold_angle = -unfold_angle  # 回転方向を反転
-            else:
-                # 鈍角の場合: 補角で展開
-                unfold_angle = math.pi - dihedral_angle
-                rotation_direction = "SUPPLEMENT"
-                if face_side > 0:  # 右側の場合
-                    unfold_angle = -unfold_angle  # 回転方向を反転
+        if is_acute:
+            # 鋭角の場合: 外側に開く（180° - 角度）
+            unfold_angle = math.pi - dihedral_angle
+            rotation_direction = "OUTWARD"
+            if face_side < 0:  # 左側の場合
+                unfold_angle = -unfold_angle  # 回転方向を反転
+        else:
+            # 鈍角の場合: 補角で展開
+            unfold_angle = math.pi - dihedral_angle
+            rotation_direction = "SUPPLEMENT"
+            if face_side > 0:  # 右側の場合
+                unfold_angle = -unfold_angle  # 回転方向を反転
 
-            print(f"  Unfold decision:")
-            print(f"    Rotation direction: {rotation_direction}")
-            print(f"    Unfold angle: {math.degrees(unfold_angle):.1f}°")
+        print(f"  Unfold decision:")
+        print(f"    Rotation direction: {rotation_direction}")
+        print(f"    Unfold angle: {math.degrees(unfold_angle):.1f}°")
 
-            # Step 5: 変換行列を作成
-            transform = gp_Trsf()
-            transform.SetRotation(rotation_axis, unfold_angle)
+        # Step 5: 変換行列を作成
+        transform = gp_Trsf()
+        transform.SetRotation(rotation_axis, unfold_angle)
 
-            return transform
-
-        except Exception as e:
-            print(f"Error calculating transform: {e}")
-            return None
+        return transform
 
     def unfold_adjacent_faces(self, base_face_index=0):
         """Core method: Unfold all faces adjacent to the base face.
@@ -774,5 +735,3 @@ if __name__ == "__main__":
         print(f"\n✗ Demo failed")
 
     print("\nDemo completed!")
-
-    obj.show_split_solid()
