@@ -427,18 +427,14 @@ class CovExp(dispocc):
         return adjacent_faces
 
     def _find_common_edge(self, face1, face2):
-        """Find the common edge between two faces.
-
-        Returns:
-            TopoDS_Edge or None: The common edge if found, None otherwise
-        """
-        edges1 = list(TopologyExplorer(face1).edges())
-        edges2 = list(TopologyExplorer(face2).edges())
-
-        for edge1 in edges1:
-            for edge2 in edges2:
-                if edge1.IsEqual(edge2):
-                    return edge1
+        """Find the common edge between two faces using LocOpe_FindEdges."""
+        finder = LocOpe_FindEdges(face1, face2)
+        finder.InitIterator()
+        while finder.More():
+            edge = finder.EdgeTo()
+            return edge  # Return the first found common edge
+            finder.Next()
+        return None
 
     @error_handling_decorator
     def _unfold_single_face(self, face, common_edge, display_idx, original_idx):
@@ -446,10 +442,10 @@ class CovExp(dispocc):
         print(f"Unfolding face {original_idx} (adjacent #{display_idx + 1})")
 
         # Display original face
-        self.display.DisplayShape(face, color="LIGHTGRAY", transparency=0.8)
+        self.display.DisplayShape(face, transparency=0.8)
 
-        # Display common edge (rotation axis)
-        self.display.DisplayShape(common_edge, color="GREEN", linewidth=3)
+        # Display the common edge in green (remove linewidth argument)
+        self.display.DisplayShape(common_edge, color="GREEN")
 
         # Calculate unfold transformation
         transform = self._calculate_unfold_transform(face, common_edge)
@@ -462,7 +458,7 @@ class CovExp(dispocc):
             color = self.colors[display_idx % len(self.colors)]
             self.display.DisplayShape(unfolded_face, color=color, transparency=0.5)
 
-            print(f"✓ Successfully unfolded face {original_idx}")
+            print(f"✓ Successfully unfolded face {original_idx} (face color {color})")
         else:
             print(f"✗ Failed to calculate transform for face {original_idx}")
 
@@ -470,121 +466,55 @@ class CovExp(dispocc):
     def _calculate_unfold_transform(self, face, common_edge):
         """Calculate the transformation to unfold a face.
 
-        CRITICAL: 展開時の重複回避のための詳細な回転判定
-
-        Problem: 基準Faceと展開Faceが重複する問題
-        Solution: 以下の条件を詳細に判定して適切な回転方向・角度を決定
-
-        Conditions to check:
-        1. 面間の角度関係（鋭角 vs 鈍角）
-        2. 回転軸に対する面の相対位置（左側 vs 右側）
-        3. 面の法線方向と回転軸の関係
-        4. 展開方向（内側展開 vs 外側展開）
-
-        Coordinate System Definition (直感的な定義):
-        - Z軸 = 共通エッジ方向（回転軸）
-        - Y軸 = 基準面の法線方向（上向き）
-        - X軸 = Z × Y（右手系で自動決定）
-
-        Returns the proper transformation for unfolding without overlap.
+        回転方向を自動判定し、fix_faceと重ならない展開を保証する。
         """
-        # Step 1: Define intuitive rotation axis coordinate system
+        # Step 1: Define rotation axis
         edge_curve, u0, u1 = BRep_Tool.Curve(common_edge)
         edge_start = edge_curve.Value(u0)
         edge_end = edge_curve.Value(u1)
-
-        # Z軸: 回転軸方向（共通エッジ方向）
         z_axis = gp_Vec(edge_start, edge_end).Normalized()
-
-        # Y軸: 基準面の法線方向（直感的な「上」方向）
-        base_normal = self.get_face_normal(self.fix_face)
-        y_axis = gp_Vec(base_normal).Normalized()
-
-        # X軸: 右手系で自動決定（Z × Y）
-        x_axis = z_axis.Crossed(y_axis).Normalized()
-
-        # 回転軸座標系を定義
         rotation_axis = gp_Ax1(edge_start, vec_to_dir(z_axis))
-        coord_system = gp_Ax3(edge_start, vec_to_dir(z_axis), vec_to_dir(x_axis))
 
-        print(f"  Intuitive coordinate system defined:")
-        print(
-            f"    Z (rotation): ({z_axis.X():.3f}, {z_axis.Y():.3f}, {z_axis.Z():.3f})"
-        )
-        print(
-            f"    Y (base normal): ({y_axis.X():.3f}, {y_axis.Y():.3f}, {y_axis.Z():.3f})"
-        )
-        print(f"    X (Z×Y): ({x_axis.X():.3f}, {x_axis.Y():.3f}, {x_axis.Z():.3f})")
-
-        # Step 2: 展開面の法線と位置関係を分析
-        face_normal = self.get_face_normal(face)
-        face_center = self.get_face_center(face)
-        base_center = self.get_face_center(self.fix_face)
-
-        # 展開面が回転軸に対して左側か右側かを判定（新座標系）
-        edge_to_face = gp_Vec(edge_start, face_center)
-        cross_product = z_axis.Crossed(edge_to_face)
-        face_side = cross_product.Dot(y_axis)  # Y軸（基準面法線）との内積で判定
-
-        print(f"  Face position analysis (intuitive coords):")
-        print(
-            f"    Face normal: ({face_normal.X():.3f}, {face_normal.Y():.3f}, {face_normal.Z():.3f})"
-        )
-        print(
-            f"    Face side: {'RIGHT' if face_side > 0 else 'LEFT'} (value: {face_side:.3f})"
-        )
-
-        # Step 3: 二面角を計算
+        # Step 2: Dihedral angle (always positive)
         dihedral_angle = self._get_dihedral_angle(self.fix_face, face, common_edge)
-        is_acute = dihedral_angle < math.pi / 2
+        unfold_angle = math.pi - dihedral_angle
 
-        print(f"  Angle analysis:")
-        print(f"    Dihedral angle: {math.degrees(dihedral_angle):.1f}°")
-        print(f"    Angle type: {'ACUTE' if is_acute else 'OBTUSE'}")
+        # Step 3: Try both directions, pick the one that aligns normals
+        trsf_pos = gp_Trsf()
+        trsf_pos.SetRotation(rotation_axis, unfold_angle)
+        normal_pos = self.get_face_normal(face.Moved(TopLoc_Location(trsf_pos)))
 
-        # Step 4: 展開角度と方向を決定（直感的座標系版）
-        """
-        展開判定ロジック（Y軸=基準面法線版）:
-        
-        Case 1: 鋭角 + 面が左側
-        → 180° - 二面角で展開（外側に開く）
-        
-        Case 2: 鋭角 + 面が右側  
-        → 180° - 二面角で展開（外側に開く）
-        
-        Case 3: 鈍角 + 面が左側
-        → 二面角の補角で展開（内側に折り込む）
-        
-        Case 4: 鈍角 + 面が右側
-        → 二面角の補角で展開（内側に折り込む）
-        
-        重要: 面の重複を避けるため、必ず外側展開を選択
-        """
+        trsf_neg = gp_Trsf()
+        trsf_neg.SetRotation(rotation_axis, -unfold_angle)
+        normal_neg = self.get_face_normal(face.Moved(TopLoc_Location(trsf_neg)))
 
-        if is_acute:
-            # 鋭角の場合: 外側に開く（180° - 角度）
-            unfold_angle = math.pi - dihedral_angle
-            rotation_direction = "OUTWARD"
-            if face_side < 0:  # 左側の場合
-                unfold_angle = -unfold_angle  # 回転方向を反転
+        base_normal = self.get_face_normal(self.fix_face)
+        angle_pos = base_normal.Angle(normal_pos)
+        angle_neg = base_normal.Angle(normal_neg)
+        dot_pos = base_normal.Dot(normal_pos)
+        dot_neg = base_normal.Dot(normal_neg)
+
+        print(f"  Dihedral angle: {math.degrees(dihedral_angle):.1f}°")
+        print(
+            f"  Try +unfold_angle: {math.degrees(unfold_angle):.1f}°, normal diff: {math.degrees(angle_pos):.1f}°, dot: {dot_pos:.3f}"
+        )
+        print(
+            f"  Try -unfold_angle: {math.degrees(-unfold_angle):.1f}°, normal diff: {math.degrees(angle_neg):.1f}°, dot: {dot_neg:.3f}"
+        )
+
+        # 優先: 法線の向きがfix_faceと同じ（dot>0）かつ角度が小さい方
+        if dot_pos > 0 and (angle_pos <= angle_neg or dot_neg <= 0):
+            chosen_angle = unfold_angle
+            print(f"  Chosen: +unfold_angle (dot={dot_pos:.3f})")
         else:
-            # 鈍角の場合: 補角で展開
-            unfold_angle = math.pi - dihedral_angle
-            rotation_direction = "SUPPLEMENT"
-            if face_side > 0:  # 右側の場合
-                unfold_angle = -unfold_angle  # 回転方向を反転
+            chosen_angle = -unfold_angle
+            print(f"  Chosen: -unfold_angle (dot={dot_neg:.3f})")
 
-        print(f"  Unfold decision:")
-        print(f"    Rotation direction: {rotation_direction}")
-        print(f"    Unfold angle: {math.degrees(unfold_angle):.1f}°")
-
-        # Step 5: 変換行列を作成
         transform = gp_Trsf()
-        transform.SetRotation(rotation_axis, unfold_angle)
-
+        transform.SetRotation(rotation_axis, chosen_angle)
         return transform
 
-    def unfold_adjacent_faces(self, base_face_index=0):
+    def unfold_adjacent_faces(self, fix_solid, base_face_index=0):
         """Core method: Unfold all faces adjacent to the base face.
 
         ===================================================================
@@ -650,14 +580,18 @@ class CovExp(dispocc):
                - Display result with color coding
         """
 
+        face_count = len(list(TopologyExplorer(fix_solid).faces()))
+        print(f"Found {face_count} faces")
+
         # Step 1: Get base face
-        faces = list(TopologyExplorer(self.fix_solid).faces())
+        faces = list(TopologyExplorer(fix_solid).faces())
 
         self.fix_face = faces[base_face_index]
         print(f"Base face {base_face_index} selected (total faces: {len(faces)})")
 
         # Display base face with special highlighting
-        self.display.DisplayShape(self.fix_face, color="BLUE", transparency=0.3)
+        self.display.DisplayShape(self.fix_face, transparency=0.1)
+        self.display.DisplayShape(fix_solid, transparency=0.8)
 
         # Step 2: Find adjacent faces
         adjacent_faces = []
@@ -672,32 +606,6 @@ class CovExp(dispocc):
         # Step 3: Unfold each adjacent face
         for face_idx, (original_index, face, common_edge) in enumerate(adjacent_faces):
             self._unfold_single_face(face, common_edge, face_idx, original_index)
-
-    def demo_simple_unfold(self):
-        """Simple demo: Create box and unfold adjacent faces.
-
-        Purpose: 1つの基準面から隣接するすべての面を展開する
-        """
-        print("=======================================================")
-        print("SIMPLE UNFOLD DEMO: Box → Base Face → Unfold Adjacent")
-        print("=======================================================")
-
-        # Create simple box
-        from OCC.Core.BRepPrimAPI import BRepPrimAPI_MakeBox
-
-        box_maker = BRepPrimAPI_MakeBox(50, 30, 20)
-        self.fix_solid = box_maker.Solid()
-
-        face_count = len(list(TopologyExplorer(self.fix_solid).faces()))
-        print(f"Created box (50×30×20) with {face_count} faces")
-
-        # Unfold from face 0
-        print("Unfolding all faces adjacent to face 0...")
-        self.unfold_adjacent_faces(base_face_index=0)
-
-        print("✓ Unfold demo completed!")
-
-        return self.fix_solid, self.fix_face, "success"
 
     def show_split_solid(self):
         colors = ["BLUE", "RED", "GREEN", "YELLOW", "BLACK", "WHITE"]
@@ -723,15 +631,26 @@ if __name__ == "__main__":
     # Main execution: Simple box unfold demo
     print("Running simple unfold demo...")
 
-    solid, base_face, result = obj.demo_simple_unfold()
+    """Simple demo: Create box and unfold adjacent faces.
+    Purpose: 1つの基準面から隣接するすべての面を展開する
+    """
+    print("=======================================================")
+    print("SIMPLE UNFOLD DEMO: Box → Base Face → Unfold Adjacent")
+    print("=======================================================")
 
-    if solid:
-        print(f"\n✓ Demo completed successfully!")
-        print(f"Results:")
-        print(f"  - Polyhedron volume: {obj.cal_vol(solid):.2f}")
-        print(f"  - Base face area: {obj.cal_are(base_face):.2f}")
-        print(f"  - Status: {result}")
-    else:
-        print(f"\n✗ Demo failed")
+    obj.split_run(5, 11)
+    obj.splitter.Shape()
 
-    print("\nDemo completed!")
+    exp = TopExp_Explorer(obj.splitter.Shape(), TopAbs_SOLID)
+    shp = []
+    while exp.More():
+        shp.append(exp.Current())
+        exp.Next()
+
+    fix_solid = shp[1]
+
+    # Unfold from face 0
+    print("Unfolding all faces adjacent to face 0...")
+    obj.unfold_adjacent_faces(fix_solid, base_face_index=1)
+
+    obj.ShowOCC()
