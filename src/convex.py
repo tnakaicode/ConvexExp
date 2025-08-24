@@ -598,7 +598,6 @@ class CovExp(dispocc):
 
 
 if __name__ == "__main__":
-    # シンプルなデモ実行（インタラクティブ要素なし）
     print("=" * 60)
     print("POLYHEDRON UNFOLDING DEMONSTRATION")
     print("=" * 60)
@@ -611,9 +610,9 @@ if __name__ == "__main__":
     """Simple demo: Create box and unfold adjacent faces.
     Purpose: 1つの基準面から隣接するすべての面を展開する
     """
-    print("=======================================================")
+    print("=" * 60)
     print("SIMPLE UNFOLD DEMO: Box → Base Face → Unfold Adjacent")
-    print("=======================================================")
+    print("=" * 60)
 
     obj.split_run(5, 11)
     obj.splitter.Shape()
@@ -624,10 +623,10 @@ if __name__ == "__main__":
         shp.append(exp.Current())
         exp.Next()
 
-    fix_solid = shp[1]
+    fix_solid = shp[-2]
 
-    # Unfold from face 0
-    print("Unfolding all faces adjacent to face 0...")
-    obj.unfold_adjacent_faces(fix_solid, base_face_index=2)
+    # Unfold from face -1 (last face)
+    print("Unfolding all faces adjacent to face -1...")
+    obj.unfold_adjacent_faces(fix_solid, base_face_index=-1)
 
     obj.ShowOCC()
